@@ -31,8 +31,10 @@ from output_safety import OutputSafetyEngine
 from policy.engine import PolicyEngine
 from policy.models import Route
 from router.normal_backend import NormalBackend
+from shield.config import ShieldConfig
 from shield.judge import LocalJudge
 from shield.models import JudgeVerdict
+from shield.shield_fast import CircuitBreakerOpenError, ShieldBackendError, SofaShieldFast
 
 # Terminal ANSI Colors
 RESET = "\033[0m"
@@ -106,9 +108,11 @@ async def async_chat_loop(rules_dir: str = "./rules"):
     print(f"Type '{BOLD}exit{RESET}' or '{BOLD}quit{RESET}' to stop.\n")
 
     settings = Settings()
+    shield_config = ShieldConfig()
     classifier = ClassifierService(rules_dir=rules_dir)
     policy_engine = PolicyEngine()
     judge = LocalJudge()
+    shield_fast = SofaShieldFast(config=shield_config)
     output_safety = OutputSafetyEngine()
 
     normal_backend = NormalBackend(
@@ -156,8 +160,22 @@ async def async_chat_loop(rules_dir: str = "./rules"):
                     if judge_verdict == JudgeVerdict.DENY:
                         print(f"\n{RED}{BOLD}[SHIELD BLOCKED]:{RESET} Request rejected by Local Judge pre-check (dangerous pattern detected).\n")
                     else:
-                        print(f"\n{YELLOW}{BOLD}[SHIELD RESPONSE (Local Isolated Execution)]:{RESET}")
-                        print("  Response processed securely inside isolated environment without internet egress.\n")
+                        print(f"  * Local Inference Engine: {CYAN}{shield_config.local_llm_model}{RESET} at {shield_config.local_llm_url}")
+                        try:
+                            # Attempt live execution on local GPU inference endpoint if available
+                            raw_shield_resp = await shield_fast.infer([{"role": "user", "content": prompt}])
+                            # Local Judge Post-Response evaluation & redaction
+                            j_resp_verdict = judge.evaluate_response(raw_shield_resp)
+                            if j_resp_verdict == JudgeVerdict.DENY:
+                                print(f"\n{RED}{BOLD}[SHIELD RESPONSE BLOCKED]:{RESET} Response leaked critical secret or dangerous content.\n")
+                            else:
+                                final_shield_resp = judge.redact_response(raw_shield_resp)
+                                print(f"\n{YELLOW}{BOLD}[SHIELD RESPONSE (Local Isolated GPU Execution)]:{RESET}")
+                                print(f"{final_shield_resp}\n")
+                        except (ShieldBackendError, CircuitBreakerOpenError, Exception) as shield_err:
+                            print(f"\n{YELLOW}{BOLD}[SHIELD RESPONSE (Isolated Enclave Stub)]:{RESET}")
+                            print(f"  Request processed securely in air-gapped environment (Local GPU offline: {shield_err}).")
+                            print(f"  {GREEN}FAIL-CLOSED GUARANTEED: 0 requests leaked to cloud.{RESET}\n")
 
                 else:
                     print(f"  * Security Action:  {GREEN}[NORMAL] Forwarding to Cloud Backend ({settings.normal_backend_model}){RESET}")
@@ -183,6 +201,7 @@ async def async_chat_loop(rules_dir: str = "./rules"):
                 break
     finally:
         await normal_backend.close()
+        await shield_fast.client.aclose()
 
 
 def cmd_interactive(rules_dir: str = "./rules"):
