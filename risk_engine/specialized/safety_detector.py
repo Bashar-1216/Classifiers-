@@ -43,11 +43,10 @@ class SafetyDetector:
         r'|\b(?:وثائق\s+مزورة|جوازات\s+(?:مزورة|غير\s+قانونية)|أموال\s+مزيفة|صناعة\s+(?:مخدرات|أسلحة|متفجرات|قنبلة))\b'
     )
 
-    # Cyber Abuse / Malware
-    # Focuses on malware, exploits, password stealing.
+    # Cyber Abuse / Malware / Web Exploits
     CYBER_ABUSE_PATTERN = re.compile(
-        r'(?i)\b(?:write\s+(?:malware|ransomware|virus|trojan)|steal\s+(?:passwords?|credentials?)|exploit\s+(?:script|code|vulnerability))\b'
-        r'|\b(?:برنامج\s+خبيث|فيروس|برمجيات\s+فدية|يسرق\s+كلمات\s+المرور|استغلال\s+ثغرة)\b'
+        r'(?i)\b(?:write\s+(?:malware|ransomware|virus|trojan)|steal\s+(?:passwords?|credentials?)|exploit\s+(?:script|code|vulnerability)|hack\s+into|penetrate\s+system)\b'
+        r'|\b(?:برنامج\s+خبيث|فيروس|برمجيات\s+فدية|يسرق\s+كلمات\s+المرور|استغلال\s+ثغرة|اختراق\s+(?:موقع|سيرفر|نظام|مواقع|سيرفرات)|طرق\s+اختراق|باختراقه)\b'
     )
 
     # Social Engineering
