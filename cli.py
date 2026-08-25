@@ -303,10 +303,16 @@ def main():
     out_parser = subparsers.add_parser("output-safety", help="Test output safety filter")
     out_parser.add_argument("text", type=str, help="Model response text to evaluate")
 
+    # verify
+    subparsers.add_parser("verify", help="Verify the 3 core criteria: Classifier v1, Fail-Safe Proof, and Local Judge")
+
     args = parser.parse_args()
 
     if args.command == "demo":
         cmd_demo()
+    elif args.command == "verify":
+        from scripts.verify_three_pillars import main as run_verify
+        asyncio.run(run_verify())
     elif args.command == "redteam":
         cmd_redteam()
     elif args.command == "chat":
