@@ -5,28 +5,6 @@ Shared test fixtures and configuration.
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
-
-from gateway.main import app
-
-
-@pytest.fixture
-def client():
-    """Create a test client for the Gateway app with lifespan enabled."""
-    with TestClient(app) as test_client:
-        yield test_client
-
-
-@pytest.fixture
-def auth_headers() -> dict[str, str]:
-    """Valid authentication headers."""
-    return {"Authorization": "Bearer sk-test-key-1"}
-
-
-@pytest.fixture
-def invalid_auth_headers() -> dict[str, str]:
-    """Invalid authentication headers."""
-    return {"Authorization": "Bearer invalid-key-xyz"}
 
 
 @pytest.fixture

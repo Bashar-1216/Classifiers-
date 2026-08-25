@@ -10,10 +10,10 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from gateway.models.schemas import ChatChoice, ChatRequest, ChatResponse, Message
 from policy.models import PolicyDecision, Route
 from router.normal_backend import NormalBackend
 from router.shield_backend import ShieldBackend, ShieldUnavailableError
+from schemas import ChatChoice, ChatRequest, ChatResponse, Message
 
 logger = logging.getLogger(__name__)
 

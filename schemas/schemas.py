@@ -1,15 +1,16 @@
 """
-Gateway request/response schemas.
+Core Data Schemas for AI Risk Assessment & Governance System.
 
-These Pydantic v2 models define the API contract for the Secure AI Gateway.
-All requests and responses flow through these schemas with strict input validation.
+Defines Pydantic v2 data models for conversation messages, request metadata,
+and AI responses.
 """
 
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from enum import Enum
+from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -50,27 +51,27 @@ class Message(BaseModel):
 class RequestMetadata(BaseModel):
     """Enterprise metadata attached to a chat request for risk assessment."""
 
-    user_id: str | None = Field(
+    user_id: Optional[str] = Field(
         default=None,
         description="Unique identifier of the requesting user",
     )
-    user_role: str | None = Field(
+    user_role: Optional[str] = Field(
         default="employee",
-        description="User role or privilege tier (e.g. 'guest', 'contractor', 'employee', 'admin')",
+        description="User role or privilege tier (e.g. 'guest', 'contractor', 'employee', 'admin', 'doctor')",
     )
-    department: str | None = Field(
+    department: Optional[str] = Field(
         default=None,
         description="Department or team (e.g. 'finance', 'engineering', 'legal', 'executive')",
     )
-    project_sensitivity: str | None = Field(
+    project_sensitivity: Optional[str] = Field(
         default="internal",
         description="Data sensitivity classification (e.g. 'public', 'internal', 'confidential', 'strictly_confidential')",
     )
-    environment: str | None = Field(
+    environment: Optional[str] = Field(
         default="production",
         description="Network/app environment (e.g. 'public_internet', 'internal_vpn', 'secure_enclave')",
     )
-    session_id: str | None = Field(
+    session_id: Optional[str] = Field(
         default=None,
         description="Session identifier for multi-turn conversation tracking",
     )
@@ -78,13 +79,12 @@ class RequestMetadata(BaseModel):
 
 class ChatRequest(BaseModel):
     """
-    Main input schema for the /v1/chat/completions endpoint.
+    Main input schema for AI Risk Assessment.
 
     Accepts either a direct prompt or a list of messages (or both).
-    Compatible with OpenAI chat completions format.
     """
 
-    prompt: str | None = Field(
+    prompt: Optional[str] = Field(
         default=None,
         max_length=100000,
         description="Direct user prompt (alternative to messages)",
@@ -93,30 +93,26 @@ class ChatRequest(BaseModel):
         default_factory=list,
         description="List of conversation messages",
     )
-    metadata: RequestMetadata | None = Field(
+    metadata: Optional[RequestMetadata] = Field(
         default=None,
         description="Optional request metadata",
     )
-    model: str | None = Field(
+    model: Optional[str] = Field(
         default=None,
         max_length=128,
-        description="Model to use for inference (configurable)",
+        description="Model to use for inference",
     )
-    temperature: float | None = Field(
+    temperature: Optional[float] = Field(
         default=None,
         ge=0.0,
         le=2.0,
         description="Sampling temperature",
     )
-    max_tokens: int | None = Field(
+    max_tokens: Optional[int] = Field(
         default=None,
         gt=0,
         le=32768,
         description="Maximum tokens to generate",
-    )
-    stream: bool = Field(
-        default=False,
-        description="Whether to stream the response",
     )
 
     @model_validator(mode="after")
@@ -125,16 +121,11 @@ class ChatRequest(BaseModel):
         has_messages = bool(self.messages and any(m.content.strip() for m in self.messages))
         if not has_prompt and not has_messages:
             raise ValueError("Request must contain a non-empty 'prompt' or at least one non-empty 'message'.")
-        if self.stream:
-            raise ValueError("Streaming ('stream: true') is not currently supported in secure mode.")
         return self
 
     def get_full_text(self) -> str:
         """
-        Extract all user-facing text from the request for classification.
-
-        Combines the prompt and all message contents into a single string
-        for the classifier to analyze.
+        Extract all user-facing text from the request for risk assessment.
         """
         parts: list[str] = []
         if self.prompt:
@@ -144,9 +135,20 @@ class ChatRequest(BaseModel):
         return " ".join(parts)
 
 
+class ChatChoice(BaseModel):
+    """A single completion choice."""
+
+    index: int = Field(default=0, description="Choice index")
+    message: Message = Field(..., description="The generated message")
+    finish_reason: Optional[str] = Field(
+        default="stop",
+        description="Reason the generation stopped",
+    )
+
+
 class ChatResponse(BaseModel):
     """
-    Main output schema returned by the Gateway.
+    Main output schema returned by the System.
 
     Includes the AI response along with routing metadata for transparency.
     """
@@ -160,10 +162,10 @@ class ChatResponse(BaseModel):
         description="Object type",
     )
     created: int = Field(
-        default_factory=lambda: int(datetime.now(UTC).timestamp()),
+        default_factory=lambda: int(datetime.now(timezone.utc).timestamp()),
         description="Unix timestamp of response creation",
     )
-    model: str | None = Field(
+    model: Optional[str] = Field(
         default=None,
         description="Model used for inference",
     )
@@ -171,24 +173,13 @@ class ChatResponse(BaseModel):
         default_factory=list,
         description="List of completion choices",
     )
-    route_taken: str | None = Field(
+    route_taken: Optional[str] = Field(
         default=None,
         description="Which route was used: 'NORMAL' or 'SHIELD'",
     )
     request_id: str = Field(
         default_factory=lambda: uuid.uuid4().hex,
         description="Unique request tracking ID",
-    )
-
-
-class ChatChoice(BaseModel):
-    """A single completion choice."""
-
-    index: int = Field(default=0, description="Choice index")
-    message: Message = Field(..., description="The generated message")
-    finish_reason: str | None = Field(
-        default="stop",
-        description="Reason the generation stopped",
     )
 
 
@@ -204,5 +195,4 @@ class ErrorResponse(BaseModel):
     )
 
 
-# Rebuild ChatResponse to resolve forward reference to ChatChoice
 ChatResponse.model_rebuild()

@@ -16,11 +16,11 @@ import httpx
 import pytest
 
 from classifier.models import Classification, ClassificationResult
-from gateway.models.schemas import ChatRequest, Message
 from policy.models import PolicyDecision, Route
 from router.normal_backend import NormalBackend
 from router.service import RouterService
 from router.shield_backend import ShieldBackend, ShieldUnavailableError
+from schemas import ChatRequest, Message
 
 
 @pytest.fixture

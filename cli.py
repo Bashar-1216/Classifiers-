@@ -1,11 +1,12 @@
 """
-AI Risk Assessment Gateway — Interactive CLI Tool.
+Enterprise AI Risk Assessment & Governance System — Interactive CLI Tool.
 
-Enables testing the full enterprise security pipeline from the terminal:
-- Interactive live chat testing with Google Gemini & Local Shield
-- Multi-dimensional Risk Assessment inspection (Security, Privacy, Business, Context, Metadata)
-- Policy Decision Engine evaluation
-- Automated end-to-end scenario demo
+Enables testing the entire AI security pipeline directly from the command line:
+- Multi-dimensional Risk Assessment (Semantic Embedding + Specialized Detectors + Context + Metadata + Rules)
+- Declarative Policy-as-Code Routing Decision (NORMAL vs SHIELD)
+- Local Isolated Shield Judge Pre-Check & Evaluation
+- Post-Generation Output Safety (Secrets, PII Redaction, Exploit Blocking)
+- Full Red Team Benchmark Execution (55 scenarios across 25 security suites)
 """
 
 from __future__ import annotations
@@ -29,7 +30,8 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 
 from classifier.models import Classification
 from classifier.service import ClassifierService
-from gateway.config import Settings
+from config import Settings
+from output_safety import OutputSafetyEngine
 from policy.engine import PolicyEngine
 from policy.models import Route
 from router.normal_backend import NormalBackend
@@ -50,7 +52,7 @@ MAGENTA = "\033[95m"
 def print_banner():
     banner = f"""
 {CYAN}{BOLD}==================================================================
-  [AI RISK ASSESSMENT GATEWAY] — ENTERPRISE CLI TEST TOOL
+  [AI RISK ASSESSMENT & GOVERNANCE ENGINE] — CLI SECURITY TOOL
 =================================================================={RESET}
 """
     print(banner)
@@ -59,44 +61,50 @@ def print_banner():
 def cmd_classify(prompt: str, rules_dir: str = "./rules"):
     """Classify a single prompt and print full multi-dimensional risk analysis."""
     classifier = ClassifierService(rules_dir=rules_dir)
-    result = classifier.classify(prompt)
+    policy_engine = PolicyEngine()
+    output_safety = OutputSafetyEngine()
 
     print(f"\n{BOLD}Input Prompt:{RESET} {prompt}")
+
+    # 1. Multi-dimensional Risk Assessment
+    result = classifier.classify(prompt)
+    decision = policy_engine.evaluate(result)
+
     status_color = RED if result.classification == Classification.RESTRICTED else GREEN
-    print(f"{BOLD}Classification:{RESET} {status_color}{BOLD}{result.classification.value}{RESET}")
-    print(f"{BOLD}Overall Risk Score:{RESET} {result.confidence:.4f}")
+    route_color = RED if decision.route == Route.SHIELD else GREEN
+
+    print(f"{BOLD}Classification:{RESET}     {status_color}{BOLD}{result.classification.value}{RESET}")
+    print(f"{BOLD}Overall Risk Score:{RESET} {result.confidence:.4f} (Risk Metric: {result.risk_score:.4f})")
+    print(f"{BOLD}Policy Route:{RESET}       {route_color}{BOLD}{decision.route.value}{RESET}")
+    print(f"{BOLD}Policy Reason:{RESET}      {decision.reason}")
 
     # Display Multi-Dimensional Category Breakdown
-    print(f"{BOLD}Risk Category Breakdown:{RESET}")
-    for cat, score in result.categories.items():
-        cat_color = RED if score >= 0.5 else (YELLOW if score > 0 else GREEN)
-        print(f"  * {cat.replace('_', ' ').title():<22}: {cat_color}{score:.2f}{RESET}")
+    print(f"\n{BOLD}Risk Category Breakdown:{RESET}")
+    for cat, score in sorted(result.categories.items(), key=lambda x: x[1], reverse=True):
+        if score > 0:
+            cat_color = RED if score >= 0.5 else (YELLOW if score > 0.2 else GREEN)
+            print(f"  * {cat.replace('_', ' ').title():<25}: {cat_color}{score:.2f}{RESET}")
 
     if result.reasons:
-        print(f"\n{BOLD}Detected Risk Factors:{RESET} {YELLOW}{', '.join(result.reasons)}{RESET}")
+        print(f"\n{BOLD}Detected Risk Triggers:{RESET} {YELLOW}{', '.join(result.reasons)}{RESET}")
         if result.matched_rules:
             print(f"{BOLD}Matched Rules:{RESET}")
             for match in result.matched_rules:
                 print(f"  * Rule: {CYAN}{match.rule_name}{RESET} | Severity: {MAGENTA}{match.severity.value}{RESET} | Pattern: '{YELLOW}{match.pattern_matched}{RESET}'")
     else:
-        print(f"\n{BOLD}Detected Risk Factors:{RESET} {GREEN}None (Clean Request){RESET}")
+        print(f"\n{BOLD}Detected Risk Triggers:{RESET} {GREEN}None (Clean Request){RESET}")
 
 
-def cmd_policy(prompt: str, rules_dir: str = "./rules"):
-    """Evaluate classification and policy decision for a prompt."""
-    classifier = ClassifierService(rules_dir=rules_dir)
-    policy_engine = PolicyEngine()
+def cmd_output_safety(text: str):
+    """Test post-generation Output Safety Filter against arbitrary text."""
+    engine = OutputSafetyEngine()
+    res = engine.evaluate(text)
 
-    result = classifier.classify(prompt)
-    decision = policy_engine.evaluate(result)
-
-    print(f"\n{BOLD}Input Prompt:{RESET} {prompt}")
-    cls_color = RED if result.classification == Classification.RESTRICTED else GREEN
-    route_color = RED if decision.route == Route.SHIELD else GREEN
-
-    print(f"{BOLD}Classification:{RESET} {cls_color}{result.classification.value}{RESET} (Risk Score: {result.confidence:.2f})")
-    print(f"{BOLD}Route Decision:{RESET} {route_color}{BOLD}{decision.route.value}{RESET}")
-    print(f"{BOLD}Decision Reason:{RESET} {decision.reason}")
+    v_color = GREEN if res.verdict.value == "ALLOW" else (YELLOW if res.verdict.value == "REDACT" else RED)
+    print(f"\n{BOLD}Output Safety Verdict:{RESET} {v_color}{BOLD}{res.verdict.value}{RESET}")
+    print(f"{BOLD}Sanitized Text:{RESET}\n{res.sanitized_text}\n")
+    if res.reasons:
+        print(f"{BOLD}Reasons:{RESET} {', '.join(res.reasons)}")
 
 
 def cmd_demo(rules_dir: str = "./rules"):
@@ -105,6 +113,7 @@ def cmd_demo(rules_dir: str = "./rules"):
     classifier = ClassifierService(rules_dir=rules_dir)
     policy_engine = PolicyEngine()
     judge = LocalJudge()
+    output_safety = OutputSafetyEngine()
 
     scenarios = [
         {
@@ -177,16 +186,23 @@ def cmd_demo(rules_dir: str = "./rules"):
     print(f"{GREEN}{BOLD}All security scenarios validated successfully!{RESET}\n")
 
 
+def cmd_redteam():
+    """Run all 55 Red Team Evaluation test suites."""
+    from scripts.run_red_team import main as run_red_team_main
+    run_red_team_main()
+
+
 async def async_chat_loop(rules_dir: str = "./rules"):
     """Interactive CLI REPL for live prompt testing with live AI generation."""
     print_banner()
-    print(f"{YELLOW}Interactive Live Mode -- Type any prompt to test live Gateway & AI generation.{RESET}")
+    print(f"{YELLOW}Interactive Live Mode -- Type any prompt to test Risk Assessment & AI generation.{RESET}")
     print(f"Type '{BOLD}exit{RESET}' or '{BOLD}quit{RESET}' to stop.\n")
 
     settings = Settings()
     classifier = ClassifierService(rules_dir=rules_dir)
     policy_engine = PolicyEngine()
     judge = LocalJudge()
+    output_safety = OutputSafetyEngine()
 
     normal_backend = NormalBackend(
         backend_url=settings.normal_backend_url,
@@ -228,7 +244,7 @@ async def async_chat_loop(rules_dir: str = "./rules"):
                     judge_verdict = judge.evaluate_request([{"role": "user", "content": prompt}])
                     j_color = RED if judge_verdict == JudgeVerdict.DENY else GREEN
                     print(f"  * Local Judge:      {j_color}{judge_verdict.value}{RESET}")
-                    print(f"  * Security Action:  {RED}[SHIELD] Isolated Local Processing (ZERO Cloud Leakage - SR-2){RESET}")
+                    print(f"  * Security Action:  {RED}[SHIELD] Isolated Local Processing (ZERO Cloud Leakage){RESET}")
 
                     if judge_verdict == JudgeVerdict.DENY:
                         print(f"\n{RED}{BOLD}[SHIELD BLOCKED]:{RESET} Request rejected by Local Judge pre-check (dangerous pattern detected).\n")
@@ -241,9 +257,17 @@ async def async_chat_loop(rules_dir: str = "./rules"):
                     print("  * Fetching response from Gemini...")
                     try:
                         ai_response = await normal_backend.send([{"role": "user", "content": prompt}])
-                        text = ai_response["choices"][0]["message"]["content"].strip()
+                        raw_text = ai_response["choices"][0]["message"]["content"].strip()
+
+                        # 3. Output Safety Inspection
+                        safety_res = output_safety.evaluate(raw_text)
+                        final_text = safety_res.sanitized_text
+
                         print(f"\n{GREEN}{BOLD}[GEMINI RESPONSE]:{RESET}")
-                        print(f"{text}\n")
+                        print(f"{final_text}\n")
+                        if safety_res.is_modified:
+                            print(f"{YELLOW}[Output Safety Applied: {safety_res.verdict.value}]{RESET}\n")
+
                     except Exception as exc:
                         print(f"\n{RED}[Backend Error]: {exc}{RESET}\n")
 
@@ -259,33 +283,38 @@ def cmd_interactive(rules_dir: str = "./rules"):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="AI Risk Assessment Gateway CLI Test Tool")
+    parser = argparse.ArgumentParser(description="AI Risk Assessment & Governance CLI Tool")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # demo
     subparsers.add_parser("demo", help="Run automated end-to-end security demo")
 
+    # redteam
+    subparsers.add_parser("redteam", help="Run full 55 Red Team test suites")
+
     # interactive / chat
     subparsers.add_parser("chat", help="Start interactive live CLI test session")
 
     # classify
-    cls_parser = subparsers.add_parser("classify", help="Classify a single prompt")
+    cls_parser = subparsers.add_parser("classify", help="Classify and evaluate a prompt")
     cls_parser.add_argument("prompt", type=str, help="Text prompt to classify")
 
-    # policy
-    pol_parser = subparsers.add_parser("policy", help="Evaluate policy decision for a prompt")
-    pol_parser.add_argument("prompt", type=str, help="Text prompt to evaluate")
+    # output-safety
+    out_parser = subparsers.add_parser("output-safety", help="Test output safety filter")
+    out_parser.add_argument("text", type=str, help="Model response text to evaluate")
 
     args = parser.parse_args()
 
     if args.command == "demo":
         cmd_demo()
+    elif args.command == "redteam":
+        cmd_redteam()
     elif args.command == "chat":
         cmd_interactive()
     elif args.command == "classify":
         cmd_classify(args.prompt)
-    elif args.command == "policy":
-        cmd_policy(args.prompt)
+    elif args.command == "output-safety":
+        cmd_output_safety(args.text)
     else:
         cmd_demo()
 

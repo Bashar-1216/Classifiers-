@@ -2,7 +2,7 @@
 Enterprise Observability & Zero-Leakage Audit Telemetry.
 
 Logs structured, privacy-preserving risk assessment telemetry:
-- Full lifecycle coverage: Success and Failure events (Auth, Rate Limit, Policy, Shield, Server errors)
+- Full lifecycle coverage: Success and Failure events (Auth, Policy, Shield, Server errors)
 - Request ID, Timestamp, User Role, Project Sensitivity
 - SHA-256 Prompt Hash (guarantees ZERO raw prompt or PII data logging)
 - Multi-dimensional Risk Scores & Triggers
@@ -17,10 +17,10 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from datetime import UTC, datetime
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-from gateway.metrics import MetricsCollector
+from observability.metrics import MetricsCollector
 
 logger = logging.getLogger("gateway.audit")
 
@@ -32,7 +32,7 @@ class AuditLogger:
     """
 
     @staticmethod
-    def hash_text(text: str | None) -> str:
+    def hash_text(text: Optional[str]) -> str:
         """Compute non-reversible SHA-256 hash of text for audit correlation."""
         if not text:
             return "empty"
@@ -44,17 +44,17 @@ class AuditLogger:
         request_id: str,
         duration_ms: float,
         risk_score: float,
-        categories: dict[str, float],
-        reasons: list[str],
+        categories: Dict[str, float],
+        reasons: List[str],
         route: str,
         policy_reason: str,
-        metadata: dict[str, Any] | None = None,
-        model: str | None = None,
-        prompt_text: str | None = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        model: Optional[str] = None,
+        prompt_text: Optional[str] = None,
         output_verdict: str = "ALLOW",
         output_modified: bool = False,
         status_code: int = 200,
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         """
         Record a structured security audit telemetry event for a completed request.
         """
@@ -62,7 +62,7 @@ class AuditLogger:
         prompt_hash = cls.hash_text(prompt_text)
 
         audit_record = {
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "request_id": request_id,
             "prompt_hash": prompt_hash,
             "duration_ms": round(duration_ms, 2),
@@ -107,15 +107,15 @@ class AuditLogger:
         status_code: int,
         detail: str,
         duration_ms: float = 0.0,
-        metadata: dict[str, Any] | None = None,
-        model: str | None = None,
-    ) -> dict[str, Any]:
+        metadata: Optional[Dict[str, Any]] = None,
+        model: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
-        Record a failure-path security audit telemetry event (Auth failure, rate limit, shield error, 500).
+        Record a failure-path security audit telemetry event.
         """
         meta = metadata or {}
         audit_record = {
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "request_id": request_id,
             "event_type": event_type,
             "status_code": status_code,

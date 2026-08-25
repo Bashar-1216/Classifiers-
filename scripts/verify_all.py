@@ -13,7 +13,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from classifier.service import ClassifierService
-from gateway.observability import AuditLogger
+from observability import AuditLogger
 from policy.engine import PolicyEngine
 from shield.judge import LocalJudge
 from shield.models import JudgeVerdict

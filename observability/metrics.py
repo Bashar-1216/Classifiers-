@@ -1,5 +1,5 @@
 """
-Gateway Telemetry & Prometheus-Compatible Metrics Collector.
+Telemetry & Prometheus-Compatible Metrics Collector.
 
 Maintains in-memory thread-safe metrics:
 - Total request counters by route and status
@@ -14,7 +14,7 @@ from __future__ import annotations
 import threading
 import time
 from collections import defaultdict
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 
 class MetricsCollector:
@@ -23,7 +23,7 @@ class MetricsCollector:
     Produces Prometheus-compatible text metrics and JSON summaries.
     """
 
-    _instance: MetricsCollector | None = None
+    _instance: Optional[MetricsCollector] = None
     _lock = threading.Lock()
 
     def __new__(cls) -> MetricsCollector:
@@ -37,7 +37,7 @@ class MetricsCollector:
         self.request_count = defaultdict(int)        # key: (route, status)
         self.threat_count = defaultdict(int)         # key: category
         self.output_verdicts = defaultdict(int)      # key: verdict (ALLOW/REDACT/BLOCK)
-        self.latencies: list[float] = []             # list of request durations
+        self.latencies: List[float] = []             # list of request durations
         self.total_requests = 0
         self.start_time = time.time()
         self._metric_lock = threading.Lock()
@@ -47,7 +47,7 @@ class MetricsCollector:
         route: str,
         status: int,
         duration_ms: float,
-        categories: dict[str, float],
+        categories: Dict[str, float],
         output_verdict: str = "ALLOW",
     ) -> None:
         """Record telemetry for a completed request."""
@@ -63,7 +63,7 @@ class MetricsCollector:
                 if score >= 0.5:
                     self.threat_count[cat] += 1
 
-    def get_summary(self) -> dict[str, Any]:
+    def get_summary(self) -> Dict[str, Any]:
         """Return JSON-serializable metrics summary."""
         with self._metric_lock:
             avg_latency = (

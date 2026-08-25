@@ -44,26 +44,38 @@ class SofaShieldFast:
     request size validation, and metadata-only audit logging.
     """
 
-    def __init__(self, config: ShieldConfig) -> None:
+    def __init__(self, config: ShieldConfig | None = None) -> None:
         """
         Initialize the SofaShieldFast gateway.
 
         Args:
-            config: Shield service configuration.
+            config: Shield service configuration (optional, defaults to standard ShieldConfig).
         """
-        self.config = config
+        self.config = config or ShieldConfig()
         self.state: CircuitState = CircuitState.CLOSED
         self.failure_count: int = 0
         self.last_failure_time: float | None = None
         self.client: httpx.AsyncClient = httpx.AsyncClient(
-            timeout=httpx.Timeout(float(config.request_timeout)),
+            timeout=httpx.Timeout(float(self.config.request_timeout)),
             limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
         )
         logger.info(
             "SofaShieldFast gateway initialized with local backend URL: %s, model: %s",
-            config.local_llm_url,
-            config.local_llm_model,
+            self.config.local_llm_url,
+            self.config.local_llm_model,
         )
+
+    def validate_request(self, messages: list[dict[str, Any]]) -> None:
+        """Validate request size against configured limit."""
+        total_size = sum(len(str(m.get("content", ""))) for m in messages if isinstance(m, dict))
+        if total_size > self.config.max_request_size:
+            raise ShieldRequestValidationError(
+                f"Request size {total_size} exceeds maximum allowed size of {self.config.max_request_size} characters"
+            )
+
+    def record_failure(self, exc: Exception | None = None) -> None:
+        """Public helper to record an inference failure."""
+        self._record_failure(exc or Exception("Inference failure"))
 
     def get_circuit_state(self) -> CircuitState:
         """
