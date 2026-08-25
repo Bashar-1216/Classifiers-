@@ -10,25 +10,25 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 import uvicorn
-from fastapi import FastAPI, Request, Depends, Response
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 
+from classifier.service import ClassifierService
 from gateway.config import Settings
+from gateway.metrics import MetricsCollector
 from gateway.middleware.auth import AuthMiddleware
 from gateway.middleware.rate_limit import RateLimiter
-from gateway.routes import chat, health
 from gateway.models.schemas import ErrorResponse
-from gateway.metrics import MetricsCollector
-from classifier.service import ClassifierService
+from gateway.routes import chat, health
 from output_safety.engine import OutputSafetyEngine
 from policy.engine import PolicyEngine
-from router.service import RouterService
 from router.normal_backend import NormalBackend
+from router.service import RouterService
 from router.shield_backend import ShieldBackend
 
 
@@ -148,6 +148,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def correlation_id_middleware(request: Request, call_next):
+    """Ensure every request has a correlation ID propagated across logs and response headers."""
+    import uuid
+    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+    request.state.request_id = request_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
 
 # Register routes
 app.include_router(health.router)

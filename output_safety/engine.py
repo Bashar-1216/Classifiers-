@@ -2,9 +2,9 @@
 Output Safety Engine — Post-Generation Security Filter.
 
 Applies post-generation safety checks and redaction to all model outputs:
-- Blocks responses with leaked cryptographic keys or AWS credentials (BLOCK)
-- Blocks responses containing live exploit payloads (BLOCK)
-- Redacts SSNs and Credit Card numbers with standardized placeholders (REDACT)
+- Blocks responses with leaked cryptographic keys or AWS/API credentials (BLOCK)
+- Blocks responses containing live exploit payloads or system prompt leaks (BLOCK)
+- Redacts SSNs, Credit Cards, Emails, and Phone Numbers with standardized placeholders (REDACT)
 - Passes clean responses without modification (ALLOW)
 """
 
@@ -12,12 +12,12 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
-from output_safety.detectors.secrets import SecretsDetector
 from output_safety.detectors.pii import OutputPIIDetector
 from output_safety.detectors.policy import OutputPolicyDetector
+from output_safety.detectors.secrets import SecretsDetector
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +35,8 @@ class OutputSafetyResult(BaseModel):
 
     verdict: OutputVerdict = Field(..., description="ALLOW, REDACT, or BLOCK")
     sanitized_text: str = Field(..., description="Processed text safe for client return")
-    reasons: List[str] = Field(default_factory=list, description="Detection reasons")
-    detected_threats: Dict[str, float] = Field(
+    reasons: list[str] = Field(default_factory=list, description="Detection reasons")
+    detected_threats: dict[str, float] = Field(
         default_factory=dict, description="Category-to-score mappings"
     )
     is_modified: bool = Field(default=False, description="True if text was redacted or blocked")
@@ -73,16 +73,16 @@ class OutputSafetyEngine:
                 is_modified=False,
             )
 
-        all_threats: Dict[str, float] = {}
-        reasons: List[str] = []
+        all_threats: dict[str, float] = {}
+        reasons: list[str] = []
 
-        # 1. Critical Secrets Check (BLOCK)
+        # 1. Critical Secrets Check (BLOCK for scores >= 0.85)
         secret_scores = self.secrets_detector.evaluate(response_text)
         all_threats.update(secret_scores)
-        if any(v >= 0.95 for v in secret_scores.values()):
-            matched = [k for k, v in secret_scores.items() if v >= 0.95]
+        if any(v >= 0.85 for v in secret_scores.values()):
+            matched = [k for k, v in secret_scores.items() if v >= 0.85]
             reasons.extend([f"Critical secret detected: {m}" for m in matched])
-            logger.warning("OutputSafety: BLOCK triggered by critical secret leak: %s", matched)
+            logger.warning("OutputSafety: BLOCK triggered by secret leak: %s", matched)
             return OutputSafetyResult(
                 verdict=OutputVerdict.BLOCK,
                 sanitized_text="[BLOCKED: Response contained sensitive security credentials or private keys]",
@@ -91,11 +91,11 @@ class OutputSafetyEngine:
                 is_modified=True,
             )
 
-        # 2. Exploits and Policy Violations Check (BLOCK)
+        # 2. Exploits and Policy Violations Check (BLOCK for scores >= 0.85)
         policy_scores = self.policy_detector.evaluate(response_text)
         all_threats.update(policy_scores)
-        if any(v >= 0.95 for v in policy_scores.values()):
-            matched = [k for k, v in policy_scores.items() if v >= 0.95]
+        if any(v >= 0.85 for v in policy_scores.values()):
+            matched = [k for k, v in policy_scores.items() if v >= 0.85]
             reasons.extend([f"Policy violation: {m}" for m in matched])
             logger.warning("OutputSafety: BLOCK triggered by exploit payload or policy violation: %s", matched)
             return OutputSafetyResult(
@@ -106,7 +106,7 @@ class OutputSafetyEngine:
                 is_modified=True,
             )
 
-        # 3. PII Detection & Redaction (REDACT)
+        # 3. PII Detection & Redaction (REDACT for scores > 0)
         pii_scores = self.pii_detector.evaluate(response_text)
         all_threats.update(pii_scores)
         if pii_scores:

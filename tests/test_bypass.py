@@ -7,11 +7,7 @@ Only the Gateway path is allowed.
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
-
-from gateway.main import app
-
 
 # client fixture is provided by conftest.py with lifespan
 

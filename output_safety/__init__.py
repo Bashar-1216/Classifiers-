@@ -9,14 +9,14 @@ Post-generation security enforcement:
 
 from __future__ import annotations
 
+from .detectors import OutputPIIDetector, OutputPolicyDetector, SecretsDetector
 from .engine import OutputSafetyEngine, OutputSafetyResult, OutputVerdict
-from .detectors import SecretsDetector, OutputPIIDetector, OutputPolicyDetector
 
 __all__ = [
+    "OutputPIIDetector",
+    "OutputPolicyDetector",
     "OutputSafetyEngine",
     "OutputSafetyResult",
     "OutputVerdict",
     "SecretsDetector",
-    "OutputPIIDetector",
-    "OutputPolicyDetector",
 ]

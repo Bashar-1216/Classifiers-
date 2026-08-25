@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -80,15 +79,15 @@ class PIIDetector:
             checksum += digit
         return checksum % 10 == 0
 
-    def _evaluate_layer1_regex(self, text: str) -> Dict[str, float]:
+    def _evaluate_layer1_regex(self, text: str) -> dict[str, float]:
         """
         Layer 1: Regex Pattern Matching.
         Detects standard deterministic formats like CC, SSN, IP, IBAN, Email, Phone.
         """
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
 
         # Check formatted and raw credit cards
-        all_cc_candidates: List[str] = self.FORMATTED_CC_REGEX.findall(text)
+        all_cc_candidates: list[str] = self.FORMATTED_CC_REGEX.findall(text)
         all_cc_candidates.extend(self.RAW_CC_REGEX.findall(text))
 
         valid_ccs = [cc for cc in all_cc_candidates if self._luhn_check(cc)]
@@ -113,13 +112,13 @@ class PIIDetector:
         return scores
 
     def _evaluate_layer2_context(
-        self, text: str, layer1_scores: Dict[str, float]
-    ) -> Dict[str, float]:
+        self, text: str, layer1_scores: dict[str, float]
+    ) -> dict[str, float]:
         """
         Layer 2: Entity Context Scoring.
         Looks for structured records or dense presence of PII-related terms.
         """
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
         text_lower = text.lower()
 
         # Check structured record
@@ -152,12 +151,12 @@ class PIIDetector:
 
         return scores
 
-    def _evaluate_layer3_credentials(self, text: str) -> Dict[str, float]:
+    def _evaluate_layer3_credentials(self, text: str) -> dict[str, float]:
         """
         Layer 3: Credential Detection.
         Detects keys, tokens, JWTs, and db connection passwords.
         """
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
 
         if self.PRIVATE_KEY_REGEX.search(text):
             scores["pii_credential_private_key"] = 1.0
@@ -179,7 +178,7 @@ class PIIDetector:
 
         return scores
 
-    def evaluate(self, text: str) -> Dict[str, float]:
+    def evaluate(self, text: str) -> dict[str, float]:
         """
         Returns category-to-score mappings like:
         {'pii_credit_card': 0.95, 'pii_email': 0.80, 'pii_credential': 0.90, 'pii_structured_record': 0.75}
@@ -189,7 +188,7 @@ class PIIDetector:
         if not text:
             return {}
 
-        final_scores: Dict[str, float] = {}
+        final_scores: dict[str, float] = {}
 
         # Run 3 layers
         l1_scores = self._evaluate_layer1_regex(text)

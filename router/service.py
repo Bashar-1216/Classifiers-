@@ -8,9 +8,9 @@ to the appropriate backend (Normal or Shield). (PRD §6.6)
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
-from gateway.models.schemas import ChatRequest, ChatResponse, ChatChoice, Message
+from gateway.models.schemas import ChatChoice, ChatRequest, ChatResponse, Message
 from policy.models import PolicyDecision, Route
 from router.normal_backend import NormalBackend
 from router.shield_backend import ShieldBackend, ShieldUnavailableError
@@ -23,8 +23,8 @@ class RouterService:
     Dispatches requests to the appropriate backend based on policy decision.
 
     Routes:
-    - NORMAL → NormalBackend (cloud AI)
-    - SHIELD → ShieldBackend (local isolated processing)
+    - NORMAL / CLOUD → NormalBackend (cloud AI)
+    - SHIELD / LOCAL_SHIELD → ShieldBackend (local isolated processing)
     """
 
     def __init__(
@@ -62,9 +62,9 @@ class RouterService:
         if not messages and request.prompt:
             messages = [{"role": "user", "content": request.prompt}]
 
-        if decision.route == Route.NORMAL:
+        if decision.route in (Route.NORMAL, Route.CLOUD):
             return await self._route_normal(messages, request, decision)
-        elif decision.route == Route.SHIELD:
+        elif decision.route in (Route.SHIELD, Route.LOCAL_SHIELD, Route.LOCAL_PRIVATE):
             return await self._route_shield(messages, request, decision)
         else:
             # Unknown route — fail closed
@@ -126,11 +126,11 @@ class RouterService:
         """
         logger.info("Routing to SHIELD backend")
 
-        metadata: Optional[dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
         if request.metadata:
             metadata = request.metadata.model_dump()
 
-        classification_data: Optional[dict[str, Any]] = None
+        classification_data: dict[str, Any] | None = None
         if decision.classification_result:
             classification_data = decision.classification_result.model_dump()
 
@@ -141,7 +141,11 @@ class RouterService:
             classification_result=classification_data,
         )
 
-        response_text = result.get("response", "")
+        response_text = result.get("response")
+        if response_text is None:
+            raise ShieldUnavailableError(
+                "Shield response missing 'response' text. FAIL CLOSED: No cloud fallback."
+            )
 
         return ChatResponse(
             choices=[

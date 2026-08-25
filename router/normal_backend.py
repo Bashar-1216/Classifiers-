@@ -8,7 +8,7 @@ when the Policy Decision routes them to NORMAL. (PRD §6.6)
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -26,7 +26,7 @@ class NormalBackend:
     def __init__(
         self,
         backend_url: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         default_model: str = "gemini-1.5-flash",
         timeout: int = 60,
     ) -> None:
@@ -34,7 +34,7 @@ class NormalBackend:
         self.api_key = api_key
         self.default_model = default_model
         self.timeout = timeout
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client."""

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -54,7 +54,7 @@ class SofaShieldFast:
         self.config = config
         self.state: CircuitState = CircuitState.CLOSED
         self.failure_count: int = 0
-        self.last_failure_time: Optional[float] = None
+        self.last_failure_time: float | None = None
         self.client: httpx.AsyncClient = httpx.AsyncClient(
             timeout=httpx.Timeout(float(config.request_timeout)),
             limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),

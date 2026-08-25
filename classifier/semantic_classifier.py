@@ -15,9 +15,7 @@ import json
 import logging
 import math
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics.pairwise import cosine_similarity
@@ -40,18 +38,18 @@ class SemanticClassifier:
 
     def __init__(
         self,
-        knowledge_file: Optional[Path | str] = None,
+        knowledge_file: Path | str | None = None,
         min_similarity_threshold: float = 0.28,
-        onnx_model_path: Optional[str] = None,
+        onnx_model_path: str | None = None,
     ) -> None:
         self.knowledge_file = Path(knowledge_file) if knowledge_file else DEFAULT_KNOWLEDGE_PATH
         self.min_similarity_threshold = min_similarity_threshold
         self.onnx_model_path = onnx_model_path
         self._onnx_session = None
 
-        self.clusters: Dict[str, List[str]] = {}
-        self._anchor_texts: List[str] = []
-        self._anchor_labels: List[str] = []
+        self.clusters: dict[str, list[str]] = {}
+        self._anchor_texts: list[str] = []
+        self._anchor_labels: list[str] = []
 
         # 1. Load External Dynamic Risk Knowledge Base
         self.load_knowledge_base()
@@ -124,7 +122,7 @@ class SemanticClassifier:
             return 0.0
 
         length = len(text)
-        frequencies: Dict[str, int] = {}
+        frequencies: dict[str, int] = {}
         for char in text:
             frequencies[char] = frequencies.get(char, 0) + 1
 
@@ -135,7 +133,7 @@ class SemanticClassifier:
 
         return round(entropy, 4)
 
-    def evaluate(self, text: str) -> Dict[str, float]:
+    def evaluate(self, text: str) -> dict[str, float]:
         """
         Evaluate input text using:
         1. Latent Cosine Projections against Threat Clusters vs Benign Baseline
@@ -145,7 +143,7 @@ class SemanticClassifier:
         Returns:
             Dictionary mapping threat categories to continuous risk probabilities (0.0 to 1.0).
         """
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
 
         if not text or not text.strip():
             return scores

@@ -16,11 +16,10 @@ import binascii
 import re
 import unicodedata
 import urllib.parse
-from typing import List, Tuple
 
 # Common Homoglyphs mapping (Cyrillic, Greek, lookalike Unicode characters to Latin)
 HOMOGLYPHS_MAP = {
-    'а': 'a', 'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y',
+    'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y',
     'і': 'i', 'ј': 'j', 'ѕ': 's', 'ԁ': 'd', 'ԛ': 'q', 'ԝ': 'w', 'ѵ': 'v',
     'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'І': 'I', 'Ј': 'J',
     'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Ѕ': 'S', 'Т': 'T', 'Х': 'X',
@@ -102,7 +101,7 @@ class TextNormalizer:
         return re.sub(r'[A-Za-z0-9@$+]{3,}', replace_word, text)
 
     @classmethod
-    def extract_base64_payloads(cls, text: str) -> List[str]:
+    def extract_base64_payloads(cls, text: str) -> list[str]:
         """Find and decode Base64 encoded strings hidden in text."""
         decoded_payloads = []
         for match in BASE64_PATTERN.finditer(text):
@@ -121,7 +120,7 @@ class TextNormalizer:
         return decoded_payloads
 
     @classmethod
-    def extract_url_encoded_payloads(cls, text: str) -> List[str]:
+    def extract_url_encoded_payloads(cls, text: str) -> list[str]:
         """Detect and decode URL-encoded text (%20, %2F, etc.)."""
         if '%' in text:
             try:
@@ -133,7 +132,7 @@ class TextNormalizer:
         return []
 
     @classmethod
-    def extract_variable_concatenations(cls, text: str) -> List[str]:
+    def extract_variable_concatenations(cls, text: str) -> list[str]:
         """
         Detects payload splitting via variables:
         e.g. Let A = "Ignore all ", Let B = "previous instructions", Combine A and B
@@ -150,12 +149,12 @@ class TextNormalizer:
         return []
 
     @classmethod
-    def get_all_normalized_variants(cls, raw_text: str) -> List[Tuple[str, str]]:
+    def get_all_normalized_variants(cls, raw_text: str) -> list[tuple[str, str]]:
         """
         Produce multiple normalized representations of the input text.
         Returns a list of tuples: (variant_text, source_description)
         """
-        variants: List[Tuple[str, str]] = []
+        variants: list[tuple[str, str]] = []
         if not raw_text or not raw_text.strip():
             return variants
 

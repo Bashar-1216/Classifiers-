@@ -3,17 +3,19 @@ Rate Limiting middleware — In-memory sliding window.
 
 Tracks request timestamps per API key and enforces a configurable
 requests-per-minute limit. (PRD §6.1)
-
-Uses an in-memory deque-based sliding window — no Redis needed for v1.
+Emits structured audit failure events when rate limits are exceeded.
 """
 
 from __future__ import annotations
 
 import logging
 import time
+import uuid
 from collections import defaultdict, deque
 
-from fastapi import Request, HTTPException, status
+from fastapi import HTTPException, Request, status
+
+from gateway.observability import AuditLogger
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,7 @@ class RateLimiter:
             HTTPException: 429 if rate limit exceeded.
         """
         if api_key == "public":
-            return  # Don't rate-limit health checks
+            return  # Don't rate-limit health checks or public endpoints
 
         now = time.monotonic()
         window_start = now - self.window_seconds
@@ -61,6 +63,14 @@ class RateLimiter:
             # Calculate retry-after from oldest request in window
             oldest = req_times[0]
             retry_after = int(oldest - window_start) + 1
+
+            request_id = getattr(request.state, "request_id", None) or uuid.uuid4().hex
+            AuditLogger.log_failure(
+                request_id=request_id,
+                event_type="RATE_LIMIT_EXCEEDED",
+                status_code=429,
+                detail=f"Rate limit of {self.requests_per_minute} req/min exceeded",
+            )
 
             logger.warning(
                 "Rate limit exceeded for key=%s...%s (%d/%d in window)",

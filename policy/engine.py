@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from classifier.models import Classification, ClassificationResult
 from policy.models import PolicyDecision, Route
@@ -26,10 +26,10 @@ class PolicyEngine:
     Evaluates enterprise governance policies from policy/policies.json dynamically.
     """
 
-    def __init__(self, policy_file: Optional[Path | str] = None) -> None:
+    def __init__(self, policy_file: Path | str | None = None) -> None:
         self.policy_file = Path(policy_file) if policy_file else DEFAULT_POLICY_PATH
-        self.policies: Dict[str, Any] = {}
-        self.rules: List[Dict[str, Any]] = []
+        self.policies: dict[str, Any] = {}
+        self.rules: list[dict[str, Any]] = []
         self.default_route = Route.NORMAL
         self.default_risk_threshold = 0.50
 
@@ -62,7 +62,7 @@ class PolicyEngine:
     def evaluate(
         self,
         classification_result: ClassificationResult,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> PolicyDecision:
         """
         Evaluate classification result and metadata against declarative policy rules.

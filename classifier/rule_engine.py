@@ -12,11 +12,10 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
-from classifier.models import RuleDefinition, RuleMatch, RuleType, Severity
+from classifier.models import RuleDefinition, RuleMatch, RuleType
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,7 @@ class RuleEngine:
     - regex: Pre-compiled regular expression matching
     """
 
-    def __init__(self, rules_dir: Optional[str] = None) -> None:
+    def __init__(self, rules_dir: str | None = None) -> None:
         self._rules: list[RuleDefinition] = []
         self._compiled_regex: dict[str, list[re.Pattern[str]]] = {}
         if rules_dir:
@@ -122,7 +121,7 @@ class RuleEngine:
         rule: RuleDefinition,
         text: str,
         text_lower: str,
-    ) -> Optional[RuleMatch]:
+    ) -> RuleMatch | None:
         """Evaluate a single rule against the text."""
         if rule.type == RuleType.KEYWORD:
             return self._match_keywords(rule, text_lower)
@@ -134,7 +133,7 @@ class RuleEngine:
         self,
         rule: RuleDefinition,
         text_lower: str,
-    ) -> Optional[RuleMatch]:
+    ) -> RuleMatch | None:
         """Case-insensitive substring matching."""
         for pattern in rule.patterns:
             if pattern.lower() in text_lower:
@@ -150,7 +149,7 @@ class RuleEngine:
         self,
         rule: RuleDefinition,
         text: str,
-    ) -> Optional[RuleMatch]:
+    ) -> RuleMatch | None:
         """Pre-compiled regex pattern matching."""
         compiled_patterns = self._compiled_regex.get(rule.name, [])
         for pattern in compiled_patterns:

@@ -3,7 +3,8 @@ Tests for Specialized Detection Engines (PII, Jailbreak, Safety).
 """
 
 import pytest
-from risk_engine.specialized import PIIDetector, JailbreakDetector, SafetyDetector
+
+from risk_engine.specialized import JailbreakDetector, PIIDetector, SafetyDetector
 
 
 class TestPIIDetector:

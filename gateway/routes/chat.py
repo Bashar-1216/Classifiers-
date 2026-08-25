@@ -12,7 +12,7 @@ import logging
 import time
 import uuid
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from gateway.models.schemas import ChatRequest, ChatResponse, ErrorResponse
@@ -49,7 +49,7 @@ async def chat_completions(
     6. Output Safety — evaluate and sanitize response for secrets/PII/exploits
     7. Response & Audit Telemetry — record zero-leakage hash & metrics
     """
-    request_id = uuid.uuid4().hex
+    request_id = getattr(request.state, "request_id", None) or uuid.uuid4().hex
     start_time = time.monotonic()
 
     logger.info(
@@ -58,6 +58,8 @@ async def chat_completions(
         len(chat_request.messages),
     )
 
+    metadata_dict = chat_request.metadata.model_dump() if chat_request.metadata else {}
+
     try:
         # --- Step 1: Extract text for classification ---
         full_text = chat_request.get_full_text()
@@ -65,7 +67,6 @@ async def chat_completions(
         # --- Step 2: Risk Assessment (Semantic, Specialized Detectors, Context, Metadata, Rules) ---
         classifier = request.app.state.classifier
         messages_dicts = [{"role": m.role, "content": m.content} for m in chat_request.messages]
-        metadata_dict = chat_request.metadata.model_dump() if chat_request.metadata else {}
 
         classification_result = classifier.classify(
             text=full_text,
@@ -157,6 +158,15 @@ async def chat_completions(
             str(e),
             elapsed,
         )
+        AuditLogger.log_failure(
+            request_id=request_id,
+            event_type="SHIELD_UNAVAILABLE",
+            status_code=503,
+            detail=str(e),
+            duration_ms=elapsed,
+            metadata=metadata_dict,
+            model=chat_request.model,
+        )
         return JSONResponse(
             status_code=503,
             content=ErrorResponse(
@@ -174,6 +184,15 @@ async def chat_completions(
             request_id[:8],
             str(e),
             elapsed,
+        )
+        AuditLogger.log_failure(
+            request_id=request_id,
+            event_type="INTERNAL_SERVER_ERROR",
+            status_code=500,
+            detail=f"{type(e).__name__}: {e!s}",
+            duration_ms=elapsed,
+            metadata=metadata_dict,
+            model=chat_request.model,
         )
         return JSONResponse(
             status_code=500,

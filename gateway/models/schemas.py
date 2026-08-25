@@ -2,16 +2,25 @@
 Gateway request/response schemas.
 
 These Pydantic v2 models define the API contract for the Secure AI Gateway.
-All requests and responses flow through these schemas.
+All requests and responses flow through these schemas with strict input validation.
 """
 
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
+from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+
+class MessageRole(str, Enum):
+    """Allowed roles for conversation messages."""
+
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    TOOL = "tool"
 
 
 class Message(BaseModel):
@@ -19,40 +28,49 @@ class Message(BaseModel):
 
     role: str = Field(
         ...,
-        description="Role of the message sender: 'system', 'user', or 'assistant'",
+        description="Role of the message sender: 'system', 'user', 'assistant', or 'tool'",
         examples=["user", "assistant", "system"],
     )
     content: str = Field(
         ...,
+        min_length=1,
+        max_length=100000,
         description="The text content of the message",
         examples=["Hello, how are you?"],
     )
+
+    @model_validator(mode="after")
+    def validate_role(self) -> Message:
+        allowed = {r.value for r in MessageRole}
+        if self.role.lower() not in allowed:
+            raise ValueError(f"Invalid message role '{self.role}'. Allowed roles: {allowed}")
+        return self
 
 
 class RequestMetadata(BaseModel):
     """Enterprise metadata attached to a chat request for risk assessment."""
 
-    user_id: Optional[str] = Field(
+    user_id: str | None = Field(
         default=None,
         description="Unique identifier of the requesting user",
     )
-    user_role: Optional[str] = Field(
+    user_role: str | None = Field(
         default="employee",
         description="User role or privilege tier (e.g. 'guest', 'contractor', 'employee', 'admin')",
     )
-    department: Optional[str] = Field(
+    department: str | None = Field(
         default=None,
         description="Department or team (e.g. 'finance', 'engineering', 'legal', 'executive')",
     )
-    project_sensitivity: Optional[str] = Field(
+    project_sensitivity: str | None = Field(
         default="internal",
         description="Data sensitivity classification (e.g. 'public', 'internal', 'confidential', 'strictly_confidential')",
     )
-    environment: Optional[str] = Field(
+    environment: str | None = Field(
         default="production",
         description="Network/app environment (e.g. 'public_internet', 'internal_vpn', 'secure_enclave')",
     )
-    session_id: Optional[str] = Field(
+    session_id: str | None = Field(
         default=None,
         description="Session identifier for multi-turn conversation tracking",
     )
@@ -66,37 +84,50 @@ class ChatRequest(BaseModel):
     Compatible with OpenAI chat completions format.
     """
 
-    prompt: Optional[str] = Field(
+    prompt: str | None = Field(
         default=None,
+        max_length=100000,
         description="Direct user prompt (alternative to messages)",
     )
     messages: list[Message] = Field(
         default_factory=list,
         description="List of conversation messages",
     )
-    metadata: Optional[RequestMetadata] = Field(
+    metadata: RequestMetadata | None = Field(
         default=None,
         description="Optional request metadata",
     )
-    model: Optional[str] = Field(
+    model: str | None = Field(
         default=None,
+        max_length=128,
         description="Model to use for inference (configurable)",
     )
-    temperature: Optional[float] = Field(
+    temperature: float | None = Field(
         default=None,
         ge=0.0,
         le=2.0,
         description="Sampling temperature",
     )
-    max_tokens: Optional[int] = Field(
+    max_tokens: int | None = Field(
         default=None,
         gt=0,
+        le=32768,
         description="Maximum tokens to generate",
     )
     stream: bool = Field(
         default=False,
         description="Whether to stream the response",
     )
+
+    @model_validator(mode="after")
+    def validate_non_empty(self) -> ChatRequest:
+        has_prompt = bool(self.prompt and self.prompt.strip())
+        has_messages = bool(self.messages and any(m.content.strip() for m in self.messages))
+        if not has_prompt and not has_messages:
+            raise ValueError("Request must contain a non-empty 'prompt' or at least one non-empty 'message'.")
+        if self.stream:
+            raise ValueError("Streaming ('stream: true') is not currently supported in secure mode.")
+        return self
 
     def get_full_text(self) -> str:
         """
@@ -129,10 +160,10 @@ class ChatResponse(BaseModel):
         description="Object type",
     )
     created: int = Field(
-        default_factory=lambda: int(datetime.now(timezone.utc).timestamp()),
+        default_factory=lambda: int(datetime.now(UTC).timestamp()),
         description="Unix timestamp of response creation",
     )
-    model: Optional[str] = Field(
+    model: str | None = Field(
         default=None,
         description="Model used for inference",
     )
@@ -140,7 +171,7 @@ class ChatResponse(BaseModel):
         default_factory=list,
         description="List of completion choices",
     )
-    route_taken: Optional[str] = Field(
+    route_taken: str | None = Field(
         default=None,
         description="Which route was used: 'NORMAL' or 'SHIELD'",
     )
@@ -155,7 +186,7 @@ class ChatChoice(BaseModel):
 
     index: int = Field(default=0, description="Choice index")
     message: Message = Field(..., description="The generated message")
-    finish_reason: Optional[str] = Field(
+    finish_reason: str | None = Field(
         default="stop",
         description="Reason the generation stopped",
     )

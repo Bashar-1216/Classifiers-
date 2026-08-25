@@ -6,6 +6,7 @@ Ensures continuous regression testing across all risk categories and languages.
 from __future__ import annotations
 
 import pytest
+
 from classifier.service import ClassifierService
 from policy.engine import PolicyEngine
 from scripts.run_red_team import RED_TEAM_SUITES, TestCase

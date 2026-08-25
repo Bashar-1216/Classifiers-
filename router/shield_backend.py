@@ -2,14 +2,14 @@
 Shield Backend — Client for the Shield service.
 
 Sends restricted requests to the Shield service for local processing.
-Implements fail-closed behavior: on any error, returns an error
-rather than falling back to cloud. (PRD §6.6, SR-3)
+Implements fail-closed behavior: on any error, raises ShieldUnavailableError
+rather than returning an empty success response or falling back to cloud. (PRD §6.6, SR-3)
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
@@ -21,7 +21,7 @@ class ShieldBackend:
     Client for the Shield service.
 
     Sends requests to the isolated Shield environment for secure
-    local processing. On ANY failure, returns error — never cloud fallback.
+    local processing. On ANY failure, raises ShieldUnavailableError — never cloud fallback.
     """
 
     def __init__(
@@ -31,7 +31,7 @@ class ShieldBackend:
     ) -> None:
         self.shield_url = shield_url.rstrip("/")
         self.timeout = timeout
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client."""
@@ -44,8 +44,8 @@ class ShieldBackend:
     async def send(
         self,
         messages: list[dict[str, str]],
-        metadata: Optional[dict[str, Any]] = None,
-        classification_result: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
+        classification_result: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Send a restricted request to the Shield service for local processing.
@@ -60,7 +60,7 @@ class ShieldBackend:
 
         Raises:
             ShieldUnavailableError: When Shield service cannot process the request.
-                                   This should NEVER trigger cloud fallback.
+                                   This should NEVER trigger cloud fallback or return 200 OK.
         """
         client = await self._get_client()
 
@@ -84,6 +84,22 @@ class ShieldBackend:
             )
             response.raise_for_status()
             result = response.json()
+
+            # Ensure response structure is valid
+            if not isinstance(result, dict):
+                raise ShieldUnavailableError(
+                    "Malformed response from Shield service (expected JSON object). "
+                    "FAIL CLOSED: No cloud fallback."
+                )
+
+            # Check if Judge verdict was DENY
+            if result.get("judge_verdict") == "DENY":
+                detail = result.get("detail", "Request rejected by Local Judge")
+                raise ShieldUnavailableError(
+                    f"Shield Local Judge rejected request (DENY): {detail}. "
+                    "FAIL CLOSED: No cloud fallback."
+                )
+
             logger.info(
                 "Shield backend response: status=%d, verdict=%s",
                 response.status_code,
@@ -108,14 +124,26 @@ class ShieldBackend:
                 "Shield backend HTTP error: %d",
                 e.response.status_code,
             )
-            # Return the error response from shield (e.g., 403 from judge)
+            detail = ""
             try:
-                return e.response.json()
+                err_json = e.response.json()
+                detail = err_json.get("detail", err_json.get("error", ""))
             except Exception:
-                raise ShieldUnavailableError(
-                    f"Shield service error (HTTP {e.response.status_code}). "
-                    "FAIL CLOSED: No cloud fallback."
-                )
+                detail = e.response.text[:200]
+
+            # ALWAYS raise ShieldUnavailableError on HTTP errors (Fail Closed)
+            raise ShieldUnavailableError(
+                f"Shield service returned HTTP {e.response.status_code}: {detail}. "
+                "FAIL CLOSED: No cloud fallback."
+            )
+        except ShieldUnavailableError:
+            raise
+        except Exception as e:
+            logger.error("Unexpected error in ShieldBackend: %s", e)
+            raise ShieldUnavailableError(
+                f"Shield backend processing failed: {type(e).__name__} - {e!s}. "
+                "FAIL CLOSED: No cloud fallback."
+            )
 
     async def health_check(self) -> bool:
         """Check if the Shield service is healthy."""
@@ -141,7 +169,6 @@ class ShieldUnavailableError(Exception):
     Raised when the Shield service cannot process a request.
 
     This error must NEVER trigger a cloud fallback.
-    The correct response is to return an error to the user. (SR-3)
+    The correct response is to return a 503 error to the user. (SR-3)
     """
 
-    pass

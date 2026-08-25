@@ -4,7 +4,6 @@ End-to-end verification script for AI Risk Assessment Gateway components.
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -14,11 +13,10 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from classifier.service import ClassifierService
+from gateway.observability import AuditLogger
 from policy.engine import PolicyEngine
 from shield.judge import LocalJudge
 from shield.models import JudgeVerdict
-from shield.shield_fast import SofaShieldFast
-from gateway.observability import AuditLogger
 
 print("==========================================================")
 print("  AI RISK ASSESSMENT GATEWAY — END-TO-END VERIFICATION")

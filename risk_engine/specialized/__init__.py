@@ -9,8 +9,8 @@ Houses dedicated detectors for high-risk categories:
 
 from __future__ import annotations
 
-from .pii_detector import PIIDetector
 from .jailbreak_detector import JailbreakDetector
+from .pii_detector import PIIDetector
 from .safety_detector import SafetyDetector
 
-__all__ = ["PIIDetector", "JailbreakDetector", "SafetyDetector"]
+__all__ = ["JailbreakDetector", "PIIDetector", "SafetyDetector"]

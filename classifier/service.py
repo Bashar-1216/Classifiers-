@@ -12,16 +12,16 @@ Along with deterministic Rule Engine and De-obfuscation Normalizer.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from classifier.models import Classification, ClassificationResult, RuleMatch
-from classifier.rule_engine import RuleEngine
-from classifier.normalizer import TextNormalizer
-from classifier.semantic_classifier import SemanticClassifier
 from classifier.context_analyzer import ContextAnalyzer
 from classifier.metadata_analyzer import MetadataAnalyzer
+from classifier.models import Classification, ClassificationResult, RuleMatch
+from classifier.normalizer import TextNormalizer
 from classifier.risk_aggregator import RiskAggregator
-from risk_engine.specialized import PIIDetector, JailbreakDetector, SafetyDetector
+from classifier.rule_engine import RuleEngine
+from classifier.semantic_classifier import SemanticClassifier
+from risk_engine.specialized import JailbreakDetector, PIIDetector, SafetyDetector
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class ClassifierService:
 
     def __init__(
         self,
-        rules_dir: Optional[str] = None,
+        rules_dir: str | None = None,
         confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
     ) -> None:
         self.rule_engine = RuleEngine(rules_dir)
@@ -57,8 +57,8 @@ class ClassifierService:
     def classify(
         self,
         text: str,
-        messages: Optional[List[Dict[str, Any]]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        messages: list[dict[str, Any]] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ClassificationResult:
         """
         Perform multi-dimensional risk assessment.
@@ -82,7 +82,7 @@ class ClassifierService:
 
         # 1. Deterministic Rule Matching on all de-obfuscated variants
         variants = TextNormalizer.get_all_normalized_variants(text)
-        rule_matches: List[RuleMatch] = []
+        rule_matches: list[RuleMatch] = []
         matched_rule_names = set()
 
         for variant_text, source_tag in variants:
@@ -103,7 +103,7 @@ class ClassifierService:
                         rule_matches.append(m)
 
         # 2. Pillar 1: Semantic Vector Classifier (Intent & Nuance)
-        semantic_scores: Dict[str, float] = {}
+        semantic_scores: dict[str, float] = {}
         for variant_text, source_tag in variants:
             v_scores = self.semantic_classifier.evaluate(variant_text)
             for cat, score in v_scores.items():
@@ -111,7 +111,7 @@ class ClassifierService:
                 semantic_scores[tag_name] = max(semantic_scores.get(tag_name, 0.0), score)
 
         # 3. Pillar 2: Specialized Classifiers (PII, Jailbreak, Safety)
-        specialized_scores: Dict[str, float] = {}
+        specialized_scores: dict[str, float] = {}
         for variant_text, source_tag in variants:
             # PII
             pii_res = self.pii_detector.evaluate(variant_text)

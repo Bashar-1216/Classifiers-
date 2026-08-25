@@ -1,24 +1,18 @@
 """
-AI Risk Engine Package.
+Risk Engine — Specialized Threat Detection Package.
 
-Unified risk assessment architecture:
-- Semantic Understanding (semantic_classifier)
-- Specialized Detection (pii, jailbreak, safety)
-- Deterministic Rules (rule_engine)
-- Context & Metadata Analyzers
-- Risk Aggregator & Unified Schemas
+Provides high-performance specialized security and safety detectors:
+- PIIDetector: Multi-layer personal data & credential detection
+- JailbreakDetector: Multi-signal prompt injection & jailbreak detection
+- SafetyDetector: Multi-category safety & harm detection
 """
 
 from __future__ import annotations
 
-from .schemas import RiskDecision, Route, TaskType
-from .specialized import PIIDetector, JailbreakDetector, SafetyDetector
+from .specialized import JailbreakDetector, PIIDetector, SafetyDetector
 
 __all__ = [
-    "RiskDecision",
-    "Route",
-    "TaskType",
-    "PIIDetector",
     "JailbreakDetector",
+    "PIIDetector",
     "SafetyDetector",
 ]

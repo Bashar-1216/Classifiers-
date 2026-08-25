@@ -4,8 +4,8 @@ Output Safety Detectors.
 
 from __future__ import annotations
 
-from .secrets import SecretsDetector
 from .pii import OutputPIIDetector
 from .policy import OutputPolicyDetector
+from .secrets import SecretsDetector
 
-__all__ = ["SecretsDetector", "OutputPIIDetector", "OutputPolicyDetector"]
+__all__ = ["OutputPIIDetector", "OutputPolicyDetector", "SecretsDetector"]

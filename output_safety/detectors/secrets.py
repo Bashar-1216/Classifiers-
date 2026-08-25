@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ class SecretsDetector:
         r"(?i)\b(?:api[_-]?key|secret[_-]?key|access[_-]?token|db[_-]?password)\s*[:=]\s*[\'\"`][A-Za-z0-9_\-\.\+/=]{16,}[\'\"`]"
     )
 
-    def evaluate(self, text: str) -> Dict[str, float]:
+    def evaluate(self, text: str) -> dict[str, float]:
         """
         Scan text for leaked secrets.
 
@@ -52,7 +51,7 @@ class SecretsDetector:
         if not text:
             return {}
 
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
 
         if self.PRIVATE_KEY_PATTERN.search(text):
             scores["secret_private_key"] = 1.0

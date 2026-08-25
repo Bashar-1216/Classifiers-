@@ -8,7 +8,6 @@ used by the Classifier Service and Rule Engine.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -51,7 +50,7 @@ class RuleDefinition(BaseModel):
     type: RuleType = Field(..., description="Pattern matching type")
     severity: Severity = Field(..., description="Rule severity level")
     patterns: list[str] = Field(..., description="List of patterns to match")
-    description: Optional[str] = Field(
+    description: str | None = Field(
         default=None,
         description="Human-readable description of what this rule detects",
     )

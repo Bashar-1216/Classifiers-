@@ -9,11 +9,7 @@ Tests:
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
-
-from gateway.main import app
-
 
 # client fixture is provided by conftest.py with lifespan
 
@@ -107,8 +103,8 @@ class TestRequestValidation:
             json={},
             headers={"Authorization": "Bearer sk-test-key-1"},
         )
-        # Should accept (messages defaults to empty list)
-        assert response.status_code != 422
+        # Empty body with neither prompt nor messages must be rejected
+        assert response.status_code == 422
 
     def test_invalid_message_format(self, client: TestClient) -> None:
         response = client.post(

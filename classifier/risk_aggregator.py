@@ -14,7 +14,7 @@ Uses weighted probabilistic union mathematics with role/metadata context sensiti
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from classifier.models import Classification, ClassificationResult, RuleMatch
 
@@ -32,12 +32,12 @@ class RiskAggregator:
 
     def aggregate(
         self,
-        rule_matches: List[RuleMatch],
-        semantic_scores: Dict[str, float],
-        context_scores: Dict[str, float],
-        metadata_scores: Dict[str, float],
-        specialized_scores: Optional[Dict[str, float]] = None,
-        caller_metadata: Optional[Dict[str, Any]] = None,
+        rule_matches: list[RuleMatch],
+        semantic_scores: dict[str, float],
+        context_scores: dict[str, float],
+        metadata_scores: dict[str, float],
+        specialized_scores: dict[str, float] | None = None,
+        caller_metadata: dict[str, Any] | None = None,
     ) -> ClassificationResult:
         """
         Aggregate all risk signals into a unified ClassificationResult.
@@ -57,14 +57,14 @@ class RiskAggregator:
         meta_dict = caller_metadata or {}
 
         # Collect all individual risk factor names
-        all_reasons: List[str] = [m.rule_name for m in rule_matches]
+        all_reasons: list[str] = [m.rule_name for m in rule_matches]
         all_reasons.extend(semantic_scores.keys())
         all_reasons.extend(spec_scores.keys())
         all_reasons.extend(context_scores.keys())
         all_reasons.extend(metadata_scores.keys())
 
         # Collect scores for probabilistic union
-        scores: List[float] = [m.severity.score for m in rule_matches]
+        scores: list[float] = [m.severity.score for m in rule_matches]
         scores.extend(semantic_scores.values())
         scores.extend(spec_scores.values())
         scores.extend(context_scores.values())
@@ -101,7 +101,7 @@ class RiskAggregator:
         overall_confidence = round(min(1.0, base_risk * role_weight), 4)
 
         # Compute Category-Level Risk Scores
-        category_breakdown: Dict[str, float] = {
+        category_breakdown: dict[str, float] = {
             "security": 0.0,
             "privacy": 0.0,
             "business_confidential": 0.0,

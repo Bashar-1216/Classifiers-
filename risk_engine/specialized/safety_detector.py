@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import re
 import logging
-from typing import Dict
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +57,7 @@ class SafetyDetector:
         r'|\b(?:تظاهر\s+أنك\s+(?:مديري|المسؤول|المدير)|انتحل\s+شخصية|وافق\s+على\s+هذا\s+(?:التحويل|الدفع)\s+فورا)\b'
     )
 
-    def evaluate(self, text: str) -> Dict[str, float]:
+    def evaluate(self, text: str) -> dict[str, float]:
         """
         Evaluates the text for safety risks across multiple categories.
 
@@ -70,7 +69,7 @@ class SafetyDetector:
                               (between 0.0 and 1.0). Only includes categories
                               where the score is greater than 0.
         """
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
         
         # 1. Hate Speech & Discrimination
         hate_matches = self.HATE_SPEECH_PATTERN.findall(text)

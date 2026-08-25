@@ -5,6 +5,7 @@ Tests for Enterprise Observability & Audit Telemetry module.
 from __future__ import annotations
 
 import json
+
 from gateway.observability import AuditLogger
 
 

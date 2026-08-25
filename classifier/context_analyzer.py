@@ -11,7 +11,7 @@ Analyzes the full conversation trajectory, detecting:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class ContextAnalyzer:
         self.max_history_turns = max_history_turns
         logger.info("ContextAnalyzer initialized (window=%d turns).", max_history_turns)
 
-    def evaluate(self, messages: List[Dict[str, Any]]) -> Dict[str, float]:
+    def evaluate(self, messages: list[dict[str, Any]]) -> dict[str, float]:
         """
         Analyze multi-turn message history for cumulative risk.
 
@@ -35,7 +35,7 @@ class ContextAnalyzer:
         Returns:
             Dictionary mapping context risk tags to confidence scores (0.0 to 1.0).
         """
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
 
         if not messages or len(messages) <= 1:
             return scores

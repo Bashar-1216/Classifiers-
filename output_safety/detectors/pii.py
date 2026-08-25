@@ -4,7 +4,7 @@ PII Detector & Redactor for Model Outputs.
 Scans model responses for sensitive Personally Identifiable Information:
 - Social Security Numbers (SSN)
 - Credit Card Numbers (Visa, MasterCard, Amex) with Luhn validation
-- Phone numbers
+- Phone numbers (International and Middle Eastern formats)
 - Email addresses
 Provides safe redaction replacing detected entities with standard tokens.
 """
@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ class OutputPIIDetector:
     """
 
     SSN_PATTERN = re.compile(r"\b(?!(?:000|666|9))\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b")
-    
+
     # Credit Cards
     VISA_PATTERN = re.compile(r"\b4[0-9]{12}(?:[0-9]{3})?\b")
     MASTERCARD_PATTERN = re.compile(
@@ -54,7 +53,7 @@ class OutputPIIDetector:
             checksum += d
         return checksum % 10 == 0
 
-    def evaluate(self, text: str) -> Dict[str, float]:
+    def evaluate(self, text: str) -> dict[str, float]:
         """
         Scan text for PII entities.
 
@@ -64,13 +63,18 @@ class OutputPIIDetector:
         if not text:
             return {}
 
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
 
         if self.SSN_PATTERN.search(text):
             scores["pii_ssn"] = 0.95
 
         # Check credit cards with Luhn validation
-        for pattern in (self.VISA_PATTERN, self.MASTERCARD_PATTERN, self.AMEX_PATTERN, self.FORMATTED_CARD_PATTERN):
+        for pattern in (
+            self.VISA_PATTERN,
+            self.MASTERCARD_PATTERN,
+            self.AMEX_PATTERN,
+            self.FORMATTED_CARD_PATTERN,
+        ):
             for match in pattern.finditer(text):
                 if self._luhn_verify(match.group()):
                     scores["pii_credit_card"] = 0.95
@@ -86,18 +90,30 @@ class OutputPIIDetector:
 
     def redact(self, text: str) -> str:
         """
-        Mask detected PII with standardized redaction tokens.
+        Mask detected PII (SSN, Credit Cards, Emails, Phone Numbers) with standardized redaction tokens.
         """
         if not text:
             return text
 
-        # Redact SSN
+        # 1. Redact SSN
         redacted = self.SSN_PATTERN.sub("[REDACTED-SSN]", text)
 
-        # Redact Credit Cards (validated)
-        for pattern in (self.FORMATTED_CARD_PATTERN, self.VISA_PATTERN, self.MASTERCARD_PATTERN, self.AMEX_PATTERN):
+        # 2. Redact Credit Cards (validated)
+        for pattern in (
+            self.FORMATTED_CARD_PATTERN,
+            self.VISA_PATTERN,
+            self.MASTERCARD_PATTERN,
+            self.AMEX_PATTERN,
+        ):
             def replace_card(m: re.Match) -> str:
                 return "[REDACTED-CARD]" if self._luhn_verify(m.group()) else m.group()
+
             redacted = pattern.sub(replace_card, redacted)
+
+        # 3. Redact Emails
+        redacted = self.EMAIL_PATTERN.sub("[REDACTED-EMAIL]", redacted)
+
+        # 4. Redact Phone Numbers
+        redacted = self.PHONE_PATTERN.sub("[REDACTED-PHONE]", redacted)
 
         return redacted

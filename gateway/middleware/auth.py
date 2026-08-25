@@ -3,19 +3,23 @@ Authentication middleware — API Key validation.
 
 Validates the Authorization header against configured API keys
 using constant-time comparison to prevent timing attacks. (PRD §6.1)
+Emits structured audit failure events on unauthorized attempts.
 """
 
 from __future__ import annotations
 
 import logging
 import secrets
+import uuid
 
-from fastapi import Request, HTTPException, status
+from fastapi import HTTPException, Request, status
+
+from gateway.observability import AuditLogger
 
 logger = logging.getLogger(__name__)
 
 # Paths that don't require authentication
-PUBLIC_PATHS = {"/health", "/health/ready", "/docs", "/redoc", "/openapi.json"}
+PUBLIC_PATHS = {"/health", "/health/ready", "/docs", "/redoc", "/openapi.json", "/metrics", "/metrics/json"}
 
 
 class AuthMiddleware:
@@ -46,10 +50,17 @@ class AuthMiddleware:
         if request.url.path in PUBLIC_PATHS:
             return "public"
 
+        request_id = getattr(request.state, "request_id", None) or uuid.uuid4().hex
         auth_header = request.headers.get("Authorization")
 
         if not auth_header:
             logger.warning("Missing Authorization header from %s", request.client.host if request.client else "unknown")
+            AuditLogger.log_failure(
+                request_id=request_id,
+                event_type="AUTH_MISSING_HEADER",
+                status_code=401,
+                detail="Missing Authorization header",
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Missing Authorization header. Use: Authorization: Bearer <api-key>",
@@ -59,6 +70,12 @@ class AuthMiddleware:
         # Parse "Bearer <key>"
         parts = auth_header.split(" ", 1)
         if len(parts) != 2 or parts[0].lower() != "bearer":
+            AuditLogger.log_failure(
+                request_id=request_id,
+                event_type="AUTH_INVALID_FORMAT",
+                status_code=401,
+                detail="Invalid Authorization header format",
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid Authorization format. Use: Authorization: Bearer <api-key>",
@@ -70,6 +87,12 @@ class AuthMiddleware:
         # Constant-time comparison against all valid keys
         if not self._validate_key(provided_key):
             logger.warning("Invalid API key attempt from %s", request.client.host if request.client else "unknown")
+            AuditLogger.log_failure(
+                request_id=request_id,
+                event_type="AUTH_INVALID_KEY",
+                status_code=401,
+                detail="Invalid API key provided",
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid API key",

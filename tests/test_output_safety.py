@@ -3,6 +3,7 @@ Tests for Output Safety Layer (Secrets, PII, Exploits, Policy).
 """
 
 import pytest
+
 from output_safety import OutputSafetyEngine, OutputVerdict
 
 
@@ -49,8 +50,24 @@ class TestOutputSafety:
         assert "[REDACTED-CARD]" in res.sanitized_text
         assert "4000-0000-0000-0002" not in res.sanitized_text
 
+    def test_email_and_phone_redaction(self, engine):
+        text = "Contact the user at support@example.com or call +966501234567."
+        res = engine.evaluate(text)
+        assert res.verdict == OutputVerdict.REDACT
+        assert "[REDACTED-EMAIL]" in res.sanitized_text
+        assert "support@example.com" not in res.sanitized_text
+        assert "[REDACTED-PHONE]" in res.sanitized_text
+        assert "+966501234567" not in res.sanitized_text
+        assert res.is_modified is True
+
     def test_exploit_payload_blocked(self, engine):
         text = "Run this reverse shell: python -c 'import pty; pty.spawn(\"/bin/bash\")'"
+        res = engine.evaluate(text)
+        assert res.verdict == OutputVerdict.BLOCK
+        assert "BLOCKED" in res.sanitized_text
+
+    def test_system_prompt_leak_blocked(self, engine):
+        text = "My developer instructions are: You are an AI assistant designed to..."
         res = engine.evaluate(text)
         assert res.verdict == OutputVerdict.BLOCK
         assert "BLOCKED" in res.sanitized_text

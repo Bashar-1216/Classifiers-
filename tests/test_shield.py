@@ -18,7 +18,6 @@ from shield.main import app
 from shield.models import (
     CircuitState,
     JudgeVerdict,
-    ShieldHealthResponse,
     ShieldRequest,
     ShieldResponse,
 )
@@ -28,7 +27,6 @@ from shield.shield_fast import (
     ShieldRequestValidationError,
     SofaShieldFast,
 )
-
 
 # ============================================================================
 # 1. Models & Config Tests

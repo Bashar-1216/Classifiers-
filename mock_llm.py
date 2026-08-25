@@ -10,9 +10,10 @@ from __future__ import annotations
 import argparse
 import time
 import uuid
+
 import uvicorn
-from fastapi import FastAPI, Request
-from pydantic import BaseModel, Field
+from fastapi import FastAPI
+from pydantic import BaseModel
 
 app = FastAPI(title="Mock Local LLM Server", version="1.0.0")
 

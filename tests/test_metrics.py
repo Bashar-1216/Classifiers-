@@ -3,6 +3,7 @@ Tests for Observability and Metrics System.
 """
 
 import pytest
+
 from gateway.metrics import MetricsCollector
 from gateway.observability import AuditLogger
 

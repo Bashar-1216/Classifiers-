@@ -1,7 +1,7 @@
 [project]
 name = "secure-ai-gateway"
-version = "1.0.0"
-description = "Secure AI Gateway & Shield System - Ingress layer for AI services with classification, policy enforcement, and local shield processing"
+version = "2.0.0"
+description = "Enterprise AI Risk Assessment Gateway & Shield System - Ingress layer for AI services with multi-dimensional risk classification, policy enforcement, model routing, and post-generation output safety"
 requires-python = ">=3.11"
 readme = "README.md"
 
@@ -13,6 +13,9 @@ dependencies = [
     "pyyaml>=6.0",
     "httpx>=0.27.0",
     "python-multipart>=0.0.9",
+    "numpy>=1.24.0",
+    "scikit-learn>=1.3.0",
+    "prometheus-client>=0.19.0",
 ]
 
 [project.optional-dependencies]
@@ -32,7 +35,18 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["gateway*", "classifier*", "policy*", "router*", "shield*"]
+include = [
+    "gateway*",
+    "classifier*",
+    "risk_engine*",
+    "output_safety*",
+    "policy*",
+    "router*",
+    "shield*",
+]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.yml", "*.json"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

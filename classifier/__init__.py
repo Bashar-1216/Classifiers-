@@ -23,16 +23,16 @@ from classifier.semantic_classifier import SemanticClassifier
 from classifier.service import ClassifierService
 
 __all__ = [
+    "Classification",
+    "ClassificationResult",
     "ClassifierService",
-    "SemanticClassifier",
     "ContextAnalyzer",
     "MetadataAnalyzer",
     "RiskAggregator",
-    "TextNormalizer",
     "RuleEngine",
-    "Classification",
-    "ClassificationResult",
     "RuleMatch",
     "RuleType",
+    "SemanticClassifier",
     "Severity",
+    "TextNormalizer",
 ]

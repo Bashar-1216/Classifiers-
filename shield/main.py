@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, status
@@ -19,7 +19,13 @@ from fastapi.responses import JSONResponse
 
 from shield.config import ShieldConfig
 from shield.judge import LocalJudge
-from shield.models import CircuitState, JudgeVerdict, ShieldHealthResponse, ShieldRequest, ShieldResponse
+from shield.models import (
+    CircuitState,
+    JudgeVerdict,
+    ShieldHealthResponse,
+    ShieldRequest,
+    ShieldResponse,
+)
 from shield.shield_fast import (
     CircuitBreakerOpenError,
     ShieldBackendError,

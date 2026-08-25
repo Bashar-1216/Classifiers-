@@ -10,7 +10,7 @@ Evaluates request metadata:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class MetadataAnalyzer:
     def __init__(self) -> None:
         logger.info("MetadataAnalyzer initialized.")
 
-    def evaluate(self, metadata: Optional[Dict[str, Any]]) -> Dict[str, float]:
+    def evaluate(self, metadata: dict[str, Any] | None) -> dict[str, float]:
         """
         Analyze metadata dictionary for environmental or privilege risk modifiers.
 
@@ -33,7 +33,7 @@ class MetadataAnalyzer:
         Returns:
             Dictionary mapping metadata risk tags to confidence scores (0.0 to 1.0).
         """
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
 
         if not metadata:
             return scores

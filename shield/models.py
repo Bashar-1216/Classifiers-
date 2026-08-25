@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -55,11 +55,11 @@ class ShieldRequest(BaseModel):
         description="List of conversation message dictionaries, each containing 'role' and 'content'",
         examples=[[{"role": "user", "content": "Explain quantum computing."}]],
     )
-    metadata: Optional[dict[str, Any]] = Field(
+    metadata: dict[str, Any] | None = Field(
         default=None,
         description="Optional request metadata (e.g., user_id, session_id)",
     )
-    classification_result: Optional[dict[str, Any]] = Field(
+    classification_result: dict[str, Any] | None = Field(
         default=None,
         description="Optional classification details produced by the gateway classifier",
     )
@@ -83,7 +83,7 @@ class ShieldResponse(BaseModel):
         ge=0.0,
         description="Total elapsed processing time in milliseconds",
     )
-    model_used: Optional[str] = Field(
+    model_used: str | None = Field(
         default=None,
         description="Identifier of the local model used for inference",
     )

@@ -13,7 +13,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-import time
 from pathlib import Path
 
 # Ensure project root is in sys.path
@@ -28,15 +27,14 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-from classifier.service import ClassifierService
 from classifier.models import Classification
+from classifier.service import ClassifierService
+from gateway.config import Settings
 from policy.engine import PolicyEngine
 from policy.models import Route
+from router.normal_backend import NormalBackend
 from shield.judge import LocalJudge
 from shield.models import JudgeVerdict
-from router.normal_backend import NormalBackend
-from gateway.config import Settings
-
 
 # Terminal ANSI Colors
 RESET = "\033[0m"
@@ -236,11 +234,11 @@ async def async_chat_loop(rules_dir: str = "./rules"):
                         print(f"\n{RED}{BOLD}[SHIELD BLOCKED]:{RESET} Request rejected by Local Judge pre-check (dangerous pattern detected).\n")
                     else:
                         print(f"\n{YELLOW}{BOLD}[SHIELD RESPONSE (Local Isolated Execution)]:{RESET}")
-                        print(f"  Response processed securely inside isolated environment without internet egress.\n")
+                        print("  Response processed securely inside isolated environment without internet egress.\n")
 
                 else:
                     print(f"  * Security Action:  {GREEN}[NORMAL] Forwarding to Google Gemini Cloud API ({settings.normal_backend_model}){RESET}")
-                    print(f"  * Fetching response from Gemini...")
+                    print("  * Fetching response from Gemini...")
                     try:
                         ai_response = await normal_backend.send([{"role": "user", "content": prompt}])
                         text = ai_response["choices"][0]["message"]["content"].strip()

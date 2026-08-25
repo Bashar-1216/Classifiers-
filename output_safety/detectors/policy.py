@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +30,14 @@ class OutputPolicyDetector:
         re.compile(r"(?i)\b(?:powershell -e [A-Za-z0-9+/=]{40,}|powershell -enc [A-Za-z0-9+/=]{40,})\b"),
     ]
 
-    def evaluate(self, text: str) -> Dict[str, float]:
+    def evaluate(self, text: str) -> dict[str, float]:
         """
         Scan response text for policy violations.
         """
         if not text:
             return {}
 
-        scores: Dict[str, float] = {}
+        scores: dict[str, float] = {}
 
         for pattern in self.SYSTEM_PROMPT_LEAK_PATTERNS:
             if pattern.search(text):
