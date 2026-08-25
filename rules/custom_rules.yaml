@@ -1,0 +1,18 @@
+# ============================================================
+# Custom Security Rules — Secure AI Gateway
+# ============================================================
+# Add your own rules here. They will be loaded alongside
+# the default rules at startup.
+#
+# Example:
+#
+# rules:
+#   - name: my_custom_rule
+#     type: keyword
+#     severity: medium
+#     description: "My custom security rule"
+#     patterns:
+#       - "some pattern to detect"
+# ============================================================
+
+rules: []

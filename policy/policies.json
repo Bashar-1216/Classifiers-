@@ -1,0 +1,91 @@
+{
+  "version": "2.0",
+  "policy_name": "Comprehensive Enterprise AI Red Team Governance Policy",
+  "description": "Evaluated dynamically by Policy Decision Engine across all 25 Red Team threat dimensions.",
+  "default_route": "NORMAL",
+  "default_risk_threshold": 0.50,
+  "rules": [
+    {
+      "id": "POL-001",
+      "name": "Security & Jailbreak Air-Gap",
+      "category": "security",
+      "min_score": 0.50,
+      "action": "SHIELD",
+      "description": "Isolates prompt injections, jailbreaks, system prompt extractions, and adversarial framing."
+    },
+    {
+      "id": "POL-002",
+      "name": "Harmful, Malware & Cyber Abuse Air-Gap",
+      "category": "harmful",
+      "min_score": 0.50,
+      "action": "SHIELD",
+      "description": "Prevents cloud leakage of malware generation, violence, and illegal activity requests."
+    },
+    {
+      "id": "POL-003",
+      "name": "Business Confidentiality & Financial Isolation",
+      "category": "business_confidential",
+      "min_score": 0.55,
+      "action": "SHIELD",
+      "description": "Routes unannounced M&A, earnings reports, and strategy to local air-gapped Shield."
+    },
+    {
+      "id": "POL-004",
+      "name": "Intellectual Property & Unreleased Source Code",
+      "category": "ip",
+      "min_score": 0.55,
+      "action": "SHIELD",
+      "description": "Protects trade secret codebases and proprietary patent architectures."
+    },
+    {
+      "id": "POL-005",
+      "name": "Medical Records Privacy Protection",
+      "category": "medical",
+      "min_score": 0.50,
+      "metadata_field": "user_role",
+      "exclude_values": ["doctor", "licensed_physician", "chief_medical_officer"],
+      "action": "SHIELD",
+      "description": "Enforces HIPAA compliance by restricting patient dossier processing to verified physicians."
+    },
+    {
+      "id": "POL-006",
+      "name": "Credential & Sensitive PII Leak Protection",
+      "category": "privacy",
+      "min_score": 0.50,
+      "action": "SHIELD",
+      "description": "Prevents cloud leakage of passwords, employee records, SSNs, and API keys."
+    },
+    {
+      "id": "POL-007",
+      "name": "Hate Speech & Social Engineering Isolation",
+      "category": "social_engineering",
+      "min_score": 0.55,
+      "action": "SHIELD",
+      "description": "Catches manager impersonation and identity spoofing."
+    },
+    {
+      "id": "POL-008",
+      "name": "Strictly Confidential Project Classification",
+      "metadata_field": "project_sensitivity",
+      "match_values": ["strictly_confidential", "top_secret", "m_and_a", "financial_unreleased"],
+      "action": "SHIELD",
+      "description": "Guarantees zero cloud egress for requests tagged with high data sensitivity."
+    },
+    {
+      "id": "POL-009",
+      "name": "Untrusted Guest Lower-Threshold Policy",
+      "metadata_field": "user_role",
+      "match_values": ["guest", "external_untrusted", "anonymous"],
+      "min_overall_risk": 0.30,
+      "action": "SHIELD",
+      "description": "Applies a stricter 0.30 threshold to external or unauthenticated guests."
+    },
+    {
+      "id": "POL-010",
+      "name": "Overall Risk Score Threshold",
+      "min_overall_risk": 0.50,
+      "action": "SHIELD",
+      "description": "Standard fallback threshold for general risk scores exceeding 0.50."
+    }
+  ]
+}
