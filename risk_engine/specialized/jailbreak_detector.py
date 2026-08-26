@@ -65,8 +65,20 @@ class JailbreakDetector:
         self.vectorizer = TfidfVectorizer(lowercase=True)
         self.reference_embeddings = self.vectorizer.fit_transform(self.CANONICAL_PHRASES)
 
+    INQUIRY_PREFIX = re.compile(
+        r'(?i)^\s*(?:why\s+is|what\s+does|what\s+is|explain\s+(?:why|what|how|the\s+concept)|'
+        r'لماذا\s+(?:تعتبر|يعتبر|يعد)|ما\s+معنى|ما\s+هو|اشرح\s+(?:مفهوم|لماذا|كيف))\b'
+    )
+
     def _evaluate_patterns(self, text: str) -> dict[str, float]:
         """Signal 1: Evaluate deterministic regex patterns."""
+        # If user is asking an educational or definitional question about an attack concept
+        if self.INQUIRY_PREFIX.search(text) and ("?" in text or "'" in text or '"' in text or "«" in text):
+            # Check if there is an unquoted imperative command
+            cleaned_text = re.sub(r"['\"«»].*?['\"«»]", "", text)
+            if not any(pattern.search(cleaned_text) for pattern, _, _ in self.PATTERN_RULES):
+                return {}
+
         scores: dict[str, float] = {}
         for pattern, category, score in self.PATTERN_RULES:
             if pattern.search(text):
@@ -121,6 +133,12 @@ class JailbreakDetector:
         """
         if not text.strip():
             return {}
+
+        # If user is asking an educational or definitional question about an attack concept
+        if self.INQUIRY_PREFIX.search(text) and ("?" in text or "'" in text or '"' in text or "«" in text):
+            cleaned_text = re.sub(r"['\"«»].*?['\"«»]", "", text)
+            if not any(pattern.search(cleaned_text) for pattern, _, _ in self.PATTERN_RULES):
+                return {}
 
         pattern_scores = self._evaluate_patterns(text)
         semantic_score = self._evaluate_semantic(text)

@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from output_safety.detectors.pii import OutputPIIDetector
 from output_safety.detectors.policy import OutputPolicyDetector
+from output_safety.detectors.prompt_fingerprint import PromptFingerprintDetector
 from output_safety.detectors.secrets import SecretsDetector
 
 logger = logging.getLogger(__name__)
@@ -48,11 +49,12 @@ class OutputSafetyEngine:
     Evaluates both Cloud (NORMAL) and Shield responses before returning to client.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, protected_prompts: list[str] | None = None) -> None:
         self.secrets_detector = SecretsDetector()
         self.pii_detector = OutputPIIDetector()
         self.policy_detector = OutputPolicyDetector()
-        logger.info("OutputSafetyEngine initialized (Secrets, PII, and Policy detectors active)")
+        self.prompt_fingerprint_detector = PromptFingerprintDetector(protected_prompts=protected_prompts)
+        logger.info("OutputSafetyEngine initialized (Secrets, PII, Policy, and PromptFingerprint detectors active)")
 
     def evaluate(self, response_text: str) -> OutputSafetyResult:
         """
@@ -106,7 +108,21 @@ class OutputSafetyEngine:
                 is_modified=True,
             )
 
-        # 3. PII Detection & Redaction (REDACT for scores > 0)
+        # 3. System Prompt & Internal Directives Leakage Check (BLOCK)
+        leak_res = self.prompt_fingerprint_detector.evaluate(response_text)
+        if leak_res["is_leak"]:
+            all_threats["system_prompt_leak"] = leak_res["leak_score"]
+            reasons.extend(leak_res["reasons"])
+            logger.warning("OutputSafety: BLOCK triggered by system prompt fingerprint leak: %s", leak_res["reasons"])
+            return OutputSafetyResult(
+                verdict=OutputVerdict.BLOCK,
+                sanitized_text="[BLOCKED: Response contained proprietary system prompt or developer directives leakage]",
+                reasons=reasons,
+                detected_threats=all_threats,
+                is_modified=True,
+            )
+
+        # 4. PII Detection & Redaction (REDACT for scores > 0)
         pii_scores = self.pii_detector.evaluate(response_text)
         all_threats.update(pii_scores)
         if pii_scores:

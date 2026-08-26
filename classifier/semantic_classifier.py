@@ -176,8 +176,8 @@ class SemanticClassifier:
             cat_indices = [i for i, label in enumerate(self._anchor_labels) if label == category]
             cat_sim = max([sims[i] for i in cat_indices]) if cat_indices else 0.0
 
-            # Dynamic thresholding based on semantic margin over benign baseline
-            if cat_sim >= self.min_similarity_threshold and cat_sim > (benign_sim * 0.85):
+            # Strict classification: threat similarity must strictly exceed benign baseline
+            if cat_sim >= self.min_similarity_threshold and cat_sim > benign_sim:
                 margin = cat_sim - self.min_similarity_threshold
                 scaled_score = 0.50 + (margin / (1.0 - self.min_similarity_threshold)) * 0.50
                 scores[category] = min(1.0, round(float(scaled_score), 4))
