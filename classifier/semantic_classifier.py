@@ -15,12 +15,13 @@ import json
 import logging
 import math
 from pathlib import Path
-from typing import Any
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.pipeline import FeatureUnion
+
+from classifier.knowledge_loader import SecurityKnowledgeBundle
 
 try:
     import onnxruntime as ort
@@ -29,9 +30,6 @@ except ImportError:
     ONNX_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_KNOWLEDGE_PATH = Path(__file__).parent.parent / "knowledge" / "risk_knowledge.json"
-
 
 class SemanticClassifier:
     """
@@ -44,8 +42,14 @@ class SemanticClassifier:
         knowledge_file: Path | str | None = None,
         min_similarity_threshold: float = 0.24,
         onnx_model_path: str | None = None,
+        knowledge_bundle: SecurityKnowledgeBundle | None = None,
     ) -> None:
-        self.knowledge_file = Path(knowledge_file) if knowledge_file else DEFAULT_KNOWLEDGE_PATH
+        self.knowledge_bundle = knowledge_bundle or SecurityKnowledgeBundle()
+        self.knowledge_file = (
+            Path(knowledge_file)
+            if knowledge_file
+            else self.knowledge_bundle.source_path("semantic_anchors")
+        )
         self.min_similarity_threshold = min_similarity_threshold
         self.onnx_model_path = onnx_model_path
         self._onnx_session = None

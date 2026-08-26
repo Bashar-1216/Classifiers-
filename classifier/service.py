@@ -20,6 +20,7 @@ from typing import Any
 from classifier.context_analyzer import ContextAnalyzer
 from classifier.defenseclaw_metrics import DefenseClawMetrics
 from classifier.lexical_engine import LexicalSignalEngine
+from classifier.knowledge_loader import SecurityKnowledgeBundle
 from classifier.local_adjudicator import LocalRiskAdjudicator
 from classifier.metadata_analyzer import MetadataAnalyzer
 from classifier.models import Classification, DetectionResult, RiskEvidence, RuleMatch
@@ -48,33 +49,41 @@ class ClassifierService:
         self,
         rules_dir: str | None = None,
         confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
+        knowledge_dir: str | None = None,
     ) -> None:
+        self.knowledge_bundle = SecurityKnowledgeBundle(knowledge_dir)
+        self.knowledge_bundle.validate()
         # Fast Lexical & Deterministic Rules
-        self.rule_engine = RuleEngine(rules_dir)
-        self.lexical_engine = LexicalSignalEngine()
+        effective_rules_dir = rules_dir or str(
+            self.knowledge_bundle.source_path("ingress_default").parent
+        )
+        self.rule_engine = RuleEngine(effective_rules_dir)
+        self.lexical_engine = LexicalSignalEngine(self.knowledge_bundle)
 
         # Structural & Statistical Metrics
         self.structure_engine = StructureSignalEngine()
         self.defenseclaw_metrics = DefenseClawMetrics()
 
         # Semantic & Specialized Guardrails
-        self.semantic_classifier = SemanticClassifier()
+        self.semantic_classifier = SemanticClassifier(knowledge_bundle=self.knowledge_bundle)
         self.pii_detector = PIIDetector()
         self.jailbreak_detector = JailbreakDetector()
         self.safety_detector = SafetyDetector()
-        self.dlp_validator = DLPValidator()
+        self.dlp_validator = DLPValidator(self.knowledge_bundle)
 
         # Context, Metadata, Correlation & Adjudication
-        self.context_analyzer = ContextAnalyzer()
+        self.context_analyzer = ContextAnalyzer(knowledge_bundle=self.knowledge_bundle)
         self.metadata_analyzer = MetadataAnalyzer()
         self.risk_correlator = RiskAxesCorrelator()
-        self.local_adjudicator = LocalRiskAdjudicator()
+        self.local_adjudicator = LocalRiskAdjudicator(self.knowledge_bundle)
 
         self.risk_aggregator = RiskAggregator(confidence_threshold=confidence_threshold)
         self.confidence_threshold = confidence_threshold
 
         logger.info(
-            "ClassifierService initialized (Lexical, Statistical, DLP, Semantic, Context, Metadata, and %d Rules).",
+            "ClassifierService initialized with knowledge bundle %s (%s) and %d rules.",
+            self.knowledge_bundle.version,
+            self.knowledge_bundle.bundle_hash[:12],
             len(self.rule_engine.rules),
         )
 

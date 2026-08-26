@@ -1,0 +1,5 @@
+version: "1.0.0"
+patterns:
+  - id: CTX-EXEC-001
+    languages: [ar, en]
+    pattern: '(?i)\b(?:طبقها|نفذها|الآن\s+نفذ|نفذ\s+الجملة|طبق\s+المثال|apply\s+it|execute\s+it|now\s+run\s+it|run\s+it\s+now|do\s+it\s+now|follow\s+the\s+quote)\b'

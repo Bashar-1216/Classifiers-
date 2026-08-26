@@ -15,6 +15,8 @@ import logging
 import re
 from typing import Any
 
+from classifier.knowledge_loader import SecurityKnowledgeBundle
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,19 +25,26 @@ class ContextAnalyzer:
     Evaluates multi-turn conversation context and history trajectory.
     """
 
-    PROBING_TERMS = [
-        # English
-        "system", "prompt", "instruction", "rule", "guideline", "restrict", "bypass", "jailbreak",
-        "api key", "apikey", "secret", "credentials", "database", "token", "schema", "privilege",
-        # Arabic
-        "تعليمات", "موجه", "نظام", "اوامر", "أوامر", "سرية", "مفتاح", "كلمة مرور", "قاعدة بيانات",
-        "ادوات", "أدوات", "دوال", "صلاحيات", "تجاوز", "اختراق", "تهكير", "فلاتر", "حماية",
-    ]
-
-    EXECUTION_TERMS_PATTERN = r'(?i)\b(?:طبقها|نفذها|الآن\s+نفذ|نفذ\s+الجملة|طبق\s+المثال|apply\s+it|execute\s+it|now\s+run\s+it|run\s+it\s+now|do\s+it\s+now|follow\s+the\s+quote)\b'
-
-    def __init__(self, max_history_turns: int = 20) -> None:
+    def __init__(
+        self,
+        max_history_turns: int = 20,
+        knowledge_bundle: SecurityKnowledgeBundle | None = None,
+    ) -> None:
         self.max_history_turns = max_history_turns
+        self.knowledge_bundle = knowledge_bundle or SecurityKnowledgeBundle()
+        terms_by_language = self.knowledge_bundle.load_json("context_terms").get(
+            "languages", {}
+        )
+        self.probing_terms = [
+            str(term)
+            for terms in terms_by_language.values()
+            if isinstance(terms, list)
+            for term in terms
+        ]
+        execution_entries = self.knowledge_bundle.load_regex_entries(
+            "context_execution_patterns"
+        )
+        self.execution_regexes = [regex for _, regex in execution_entries]
         logger.info("ContextAnalyzer initialized (window=%d turns).", max_history_turns)
 
     def evaluate(self, messages: list[dict[str, Any]]) -> dict[str, float]:
@@ -67,14 +76,16 @@ class ContextAnalyzer:
             re.search(r'(?i)["«“\'].*?(?:ignore|reveal|system\s+prompt|تعليمات|اكشف).*?["»”\']', m)
             for m in prior_messages
         )
-        if prior_contains_attack_quote and re.search(self.EXECUTION_TERMS_PATTERN, current_msg):
+        if prior_contains_attack_quote and any(
+            regex.search(current_msg) for regex in self.execution_regexes
+        ):
             scores["multi_turn_quoted_attack_execution"] = 0.95
 
         # 2. Repeated Security Probing Across History
         probe_count = 0
         for msg in user_messages:
             msg_lower = msg.lower()
-            if any(term in msg_lower for term in self.PROBING_TERMS):
+            if any(term in msg_lower for term in self.probing_terms):
                 probe_count += 1
 
         # Check if current turn asks existence/extraction based on prior probe (e.g. "أي منها موجود عندك؟")

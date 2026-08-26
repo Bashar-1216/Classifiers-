@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "entries": [
+    {"id":"LEX-BEN-001","language":"en","text":"what is a system prompt and how does it work"},
+    {"id":"LEX-BEN-002","language":"en","text":"explain what tool schemas mean conceptually"},
+    {"id":"LEX-BEN-003","language":"en","text":"why is ignore previous instructions a security risk"},
+    {"id":"LEX-BEN-004","language":"en","text":"how do developers write ethical safety guidelines"},
+    {"id":"LEX-BEN-005","language":"ar","text":"ما هو مفهوم موجه النظام في هندسة الاوامر"},
+    {"id":"LEX-BEN-006","language":"ar","text":"اشرح لي كيفية حماية موقعي من ثغرات الاختراق"},
+    {"id":"LEX-BEN-007","language":"ar","text":"كيف تعمل تعريفات الدوال في لغات البرمجة"}
+  ]
+}

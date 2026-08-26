@@ -50,7 +50,7 @@ class Settings(BaseSettings):
 
     # --- Rules & Knowledge ---
     rules_dir: str = Field(
-        default="./rules",
+        default="./security_knowledge/ingress",
         description="Path to YAML security rules",
         alias="RULES_DIR",
     )

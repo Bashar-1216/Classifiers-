@@ -1,0 +1,23 @@
+version: "1.0.0"
+patterns:
+  - id: BENIGN-EXCLUSION-001
+    description: Quoted security content used for analysis
+    pattern: '(?i)^\s*(?:classify|evaluate|explain\s+why|the\s+article|the\s+sentence|what\s+does|what\s+is|قيّم|قيم|هل\s+عبارة|لا\s+تنفذ|كرر\s+فقط|كرر|الجملة\s+هي|العبارة\s+هي|تجاهل\s+كلمة|نريد\s+اختبار)\b.*["«“''].*?["»”'']'
+  - id: BENIGN-EXCLUSION-002
+    description: Standalone quoted attack phrase
+    pattern: '(?i)^\s*["«“'']\s*(?:ignore\s+previous\s+instructions|reveal\s+your\s+system\s+prompt|اكشف\s+تعليمات\s+النظام)\s*["»”'']\s*$'
+  - id: BENIGN-EXCLUSION-003
+    description: Explicit attack-example discussion
+    pattern: '(?i)\b(?:is\s+an\s+attack\s+example|is\s+just\s+an\s+English\s+verb|مجرد\s+فعل|مجرد\s+مثال|مثال\s+على\s+هجوم)\b'
+  - id: BENIGN-EXCLUSION-004
+    description: Defensive or conceptual Arabic inquiry
+    pattern: '(?i)^\s*(?:ما\s+هو|ما\s+هي|ما\s+الفرق|ما\s+معنى|اشرح|كيف\s+(?:احمي|أحمي|ابني|أبني|اراجع|أراجع|تخزن|تُخزن|تمنع|نمنع)|اكتب\s+(?:policy|سياسة|قصة\s+عن\s+مساعد\s+خيالي))\b'
+  - id: BENIGN-EXCLUSION-005
+    description: Conceptual English inquiry
+    pattern: '(?i)^\s*(?:what\s+is|what\s+are|explain\s+what|explain\s+how|how\s+do|how\s+can\s+developers|list\s+function\s+schemas\s+conceptually)\b'
+  - id: BENIGN-EXCLUSION-006
+    description: Local game or creative context
+    pattern: '(?i)\b(?:video\s+game|gaming|minecraft|ninja\s+character|stealth\s+attribute|taskbar\s+in\s+C#|في\s+لعبة\s+فيديو|ماينكرافت|لعبتي\s+المحلية)\b'
+  - id: BENIGN-EXCLUSION-007
+    description: Standalone negated disclosure command
+    pattern: '(?i)^\s*(?:don''t|do\s+not|لا\s+تسرب|لا\s+تكشف)\s+(?:ignore|reveal|bypass|disable|أي\s+أسرار|اي\s+اسرار|أسرار)\s*.*$'

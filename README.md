@@ -97,7 +97,7 @@ NORMAL_BACKEND_URL=https://generativelanguage.googleapis.com
 NORMAL_BACKEND_API_KEY=your_gemini_api_key
 NORMAL_BACKEND_MODEL=gemini-2.5-flash
 SHIELD_SERVICE_URL=http://localhost:8001
-RULES_DIR=./rules
+RULES_DIR=./security_knowledge/ingress
 ```
 
 ### 3. Interactive CLI Chat Mode
@@ -148,22 +148,18 @@ task3/
 │   ├── shield_fast.py              # sofa-shield-fast (Circuit Breaker Gateway)
 │   └── config.py                   # Shield Service Configuration
 │
-├── rules/                          # Versioned Security Rules (YAML)
-│   ├── default_rules.yaml          # Standard High-Precision Rules
-│   └── custom_rules.yaml           # Organization Custom Rules
+├── security_knowledge/             # Canonical versioned security data bundle
+│   ├── manifest.yaml               # Required sources, bundle version, and fingerprint input
+│   ├── ingress/                    # Default and organization keyword/regex rules
+│   ├── lexical/                    # Adversarial and benign lexical corpora
+│   ├── adjudication/               # Benign exclusions and active-override patterns
+│   ├── context/                    # Multi-turn probing terms and execution patterns
+│   ├── dlp/                        # PII/secret candidate patterns
+│   └── semantic/                   # Local semantic reference anchors
 │
-├── tests/                          # 94 Comprehensive Unit & Integration Tests
-│   ├── test_classifier.py          # Semantic, Context, Metadata, and De-obfuscation tests
-│   ├── test_policy.py              # Policy routing & threshold tests
-│   ├── test_gateway.py             # Auth & Rate Limit tests
-│   ├── test_router.py              # Routing dispatch tests
-│   ├── test_shield.py              # Local Judge & Circuit Breaker tests
-│   ├── test_fail_closed.py         # SR-3 Fail Closed verification
-│   ├── test_bypass.py              # Ingress bypass prevention
-│   └── test_integration.py         # Full pipeline integration tests
+├── tests/
+│   └── test_security_knowledge.py  # Bundle validation and engine integration tests
 │
 ├── cli.py                          # Interactive CLI Test Tool
-├── mock_llm.py                     # Mock Local Model Server
-├── pyproject.toml                  # Package Configuration
-└── docker-compose.yml              # Production Network Isolation Deployments
+└── pyproject.toml                  # Package Configuration
 ```
