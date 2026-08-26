@@ -177,25 +177,27 @@ class SemanticClassifier:
             cat_sim = max([sims[i] for i in cat_indices]) if cat_indices else 0.0
 
             # Strict classification: threat similarity must strictly exceed benign baseline
-            if cat_sim >= self.min_similarity_threshold and cat_sim > benign_sim:
+            if cat_sim >= self.min_similarity_threshold and cat_sim > (benign_sim + 0.05):
                 margin = cat_sim - self.min_similarity_threshold
                 scaled_score = 0.50 + (margin / (1.0 - self.min_similarity_threshold)) * 0.50
                 scores[category] = min(1.0, round(float(scaled_score), 4))
 
         # 3. Supervised Local ML Probability Prediction
         try:
-            ml_probs = self._ml_classifier.predict_proba(query_vec)[0]
-            classes = list(self._ml_classifier.classes_)
-            benign_prob = ml_probs[classes.index("normal_benign")] if "normal_benign" in classes else 0.0
+            # Only evaluate ML probabilities if query has sufficient lexical/semantic overlap
+            if max(sims) >= self.min_similarity_threshold:
+                ml_probs = self._ml_classifier.predict_proba(query_vec)[0]
+                classes = list(self._ml_classifier.classes_)
+                benign_prob = ml_probs[classes.index("normal_benign")] if "normal_benign" in classes else 0.0
 
-            if benign_prob < 0.50:
-                for idx, prob in enumerate(ml_probs):
-                    cat = classes[idx]
-                    if cat == "normal_benign":
-                        continue
-                    if prob >= 0.35 and prob > benign_prob:
-                        current = scores.get(cat, 0.0)
-                        scores[cat] = max(current, round(float(prob), 4))
+                if benign_prob < 0.45:
+                    for idx, prob in enumerate(ml_probs):
+                        cat = classes[idx]
+                        if cat == "normal_benign":
+                            continue
+                        if prob >= 0.45 and prob > benign_prob:
+                            current = scores.get(cat, 0.0)
+                            scores[cat] = max(current, round(float(prob), 4))
         except Exception as e:
             logger.debug("ML probability inference fallback: %s", e)
 
