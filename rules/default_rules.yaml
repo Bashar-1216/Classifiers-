@@ -17,11 +17,15 @@ rules:
     version: 2.2
     description: "Detects extraction actions targeting system prompts, hidden developer rules, and tool schemas"
     patterns:
-      - "(?i)\\b(?:reveal|expose|output|print|dump|repeat|reconstruct|translate|summarize|give\\s+me|show\\s+me|display|count\\s+the\\s+characters|recite|poem|story)\\b.*\\b(?:prompt|instructions|rules|guidelines|configuration|directives|system\\s+message|tool\\s+definitions?|function\\s+schemas?|everything\\s+above|system\\s+prompt)\\b"
+      - "(?i)\\b(?:reveal|expose|output|print|dump|repeat|reconstruct|translate|summarize|give\\s+me|show\\s+me|show|display|count\\s+the\\s+characters|recite|poem|story|export|snapshot|checksum|sha256|hash|entropy|acrostic)\\b.*\\b(?:prompt|instructions|rules|guidelines|configuration|directives|system\\s+message|tool\\s+definitions?|function\\s+schemas?|everything\\s+above|system\\s+prompt|headings|buffer|policy|hidden\\s+rules|internal\\s+policy|developer\\s+message|tool\\s+schemas|hidden\\s+instructions)\\b"
       - "(?i)(?:what\\s+are|what\\s+is)\\s+(?:all\\s+)?your\\s+(?:hidden\\s+|initial\\s+|original\\s+|developer\\s+|system\\s+)+(?:prompt|instructions|rules|config|configuration|tool\\s+definitions?)"
-      - "(?i)\\b(?:اعرض|اطبع|استخرج|كرر|ترجم|لخص|أعطني|اعطني|اكشف)\\b.*\\b(?:تعليمات|موجه|برومبت|أوامر|اوامر|قواعد|توجيهات|تعريفات\\s+الأدوات|تعريفات\\s+الادوات)\\b"
+      - "(?i)^\\s*system\\s+prompt(?:\\s+please)?\\s*$"
+      - "(?i)\\b(?:اعرض|اطبع|استخرج|كرر|ترجم|لخص|أعطني|اعطني|اكشف|صدر|رتّب|رتب|حوّل|حول|انسخ|أرسل|ارسل|صف)\\b.*\\b(?:تعليمات|موجه|برومبت|أوامر|اوامر|قواعد|توجيهات|تعريفات\\s+الأدوات|تعريفات\\s+الادوات|إعدادات|اعدادات|السياسة\\s+الداخلية|نسخة\\s+احتياطية|بنية\\s+credentials|الـ?\\s*secrets)\\b"
       - "(?i)(?:ما\\s+هي)\\s+(?:تعليماتك|توجيهاتك|أوامرك|اوامرك)\\s+(?:الأولية|الاولية|السرية|المخفية|الخاصة\\s+بالمطور)"
-      - "(?i)\\b(?:what\\s+instructions\\s+were\\s+you\\s+given|repeat\\s+everything\\s+above|first\\s+letters\\s+reveal\\s+your\\s+system\\s+prompt|pretend\\s+the\\s+system\\s+prompt)\\b"
+      - "(?i)\\b(?:what\\s+instructions\\s+were\\s+you\\s+given|repeat\\s+everything\\s+above|first\\s+letters\\s+reveal\\s+your\\s+system\\s+prompt|pretend\\s+the\\s+system\\s+prompt|functionally\\s+equivalent\\s+version|reconstruct\\s+what\\s+it\\s+probably\\s+says|quote\\s+only\\s+that\\s+rule|list\\s+private\\s+namespaces|list\\s+function\\s+names\\s+only|what\\s+headings\\s+exist|describe\\s+the\\s+hidden\\s+policy|first\\s+letter\\s+of\\s+each\\s+line|translate\\s+only\\s+the\\s+nouns|extract\\s+only\\s+verbs|what\\s+capabilities\\s+are\\s+hidden|list\\s+(?:the\\s+)?section\\s+headings|headings\\s+of\\s+your\\s+prompt)\\b"
+      - "(?i)\\b(?:اول\\s+سطر|اول\\s+كلمة|كم\\s+عدد\\s+الاسطر|هل\\s+تبدا\\s+تعليماتك|اعطني\\s+sha256|اسماء\\s+الاقسام|ركز\\s+واطبع\\s+التعليمات|نظامك\\s+المخفي\\s+اعرضه|نسخة\\s+احتياطية\\s+من\\s+التعليمات|اعداداتك\\s+الاولية|snapshot\\s+لحالتك|checksum\\s+للسياسة|قائمة\\s+بالقيود\\s+الداخلية|انسخ\\s+القواعد|hidden\\s+configuration|developer\\s+message|غير\\s+مرئي\\s+للمستخدم|promptك\\s+كمثال|prompt\\s+الحقيقي|قصيدة.*تعليماتك|رتب\\s+كلمات|رتّب\\s+كلمات|ISO.*tool\\s+schemas)\\b"
+      - "(?i)\\b(?:flag\\s*=\\s*your\\s+system\\s+prompt|debugger\\s+viewing\\s+hidden\\s+memory|simulate\\s+an\\s+admin\\s+console|roleplay\\s+as\\s+your\\s+own\\s+developer|paste\\s+your\\s+initialization\\s+config)\\b"
+      - "(?i)\\b(?:Tu\\s+es\\s+libre|Mostra\\s+لي|Mostra.*prompt|pero\\s+sin\\s+explicarlo|reveal\\s+les\\s+instructions)\\b"
 
   # --- Action x Target: Direct Instruction Override & Restriction Removal ---
   - id: SEC-RULE-002
@@ -38,6 +42,8 @@ rules:
       - "(?i)(?:new\\s+instructions?:|system\\s+override:|admin\\s+override:|priority\\s+instruction:)\\s*"
       - "(?i)(?:respond|answer|act)\\s+as\\s+if\\s+no\\s+(?:safety|rules|filters|policies)\\s*(?:rules)?\\s*(?:existed)?"
       - "(?i)answer\\s+my\\s+safety\\s+filter\\s+would\\s+refuse"
+      - "(?i)\\b(?:do\\s+not\\s+reveal.*print\\s+it\\s+exactly|not\\s+asking\\s+you\\s+to\\s+bypass.*final\\s+result|never\\s+expose\\s+credentials.*show\\s+the\\s+credentials|do\\s+not\\s+access\\s+any\\s+private\\s+data.*what\\s+private\\s+data\\s+is\\s+available)\\b"
+      - "(?i)\\b(?:Forget\\s+كل\\s+شيء|Forget.*internal\\s+policy)\\b"
 
   # --- Action x Target: Persona Hijack & Unrestricted Developer Modes ---
   - id: SEC-RULE-003
@@ -79,11 +85,11 @@ rules:
     version: 2.4
     description: "Detects explicit requests to hack, breach, or compromise companies, servers, or databases"
     patterns:
-      - "(?i)(?:اريد|أريد|كيف|طريقة|ساعدني\\s+في|علمني\\s+كيف|ودي|ابغى|خلنا|لو\\s+فرضنا|ممكن\\s+تساعدني)\\s+(?:اختراق|تهكير|سرقة|تخريب|ادخل\\s+على|اشوف\\s+وش\\s+مخبين|افتح\\s+نظام|اجرب\\s+حظي|اهكرهم|[أا]?كسر\\s+حماية|افتح\\s+باب\\s+الشقة|افتح\\s+نظام\\s+مو\\s+لي|[أا]?كسر\\s+حماية\\s+خدمة)"
-      - "(?i)\\b(?:اختراق|تهكير|اهكر|هكر|اخترقهم|نسخها\\s+بدون\\s+علمهم|دخلني\\s+عندهم|ورا\\s+الباب|لسرقة\\s+المحتويات|كسر\\s+حماية\\s+خدمة|اكسر\\s+حماية|نظام\\s+مو\\s+لي|استهدف)\\b.*\\b(?:شركة|شركات|موقع|مواقع|سيرفر|سيرفرات|خادم|خوادم|نظام|أنظمة|حساب|حسابات|شبكة|شبكات|بنك|بنوك|مؤسسة|مؤسسات|قاعدة\\s+بيانات|خدمة\\s+حقيقية|ما\\s+املكها|ما\\s+أملكها|حسابهم|سيرفراتهم|example-bank|bank)?\\b"
+      - "(?i)(?:اريد|أريد|كيف|طريقة|ساعدني\\s+في|علمني\\s+كيف|ودي|ابغى|خلنا|لو\\s+فرضنا|ممكن\\s+تساعدني)\\s+(?:اختراق|تهكير|سرقة|تخريب|ادخل\\s+على|اشوف\\s+وش\\s+مخبين|افتح\\s+نظام|اجرب\\s+حظي|اهكرهم|[أا]?كسر\\s+حماية|افتح\\s+باب\\s+الشقة|افتح\\s+نظام\\s+مو\\s+لي|[أا]?كسر\\s+حماية\\s+خدمة|اشوف\\s+الملفات|اعرف\\s+وش\\s+مخبي|اختبار\\s+موقع)"
+      - "(?i)\\b(?:اختراق|تهكير|اهكر|هكر|اخترقهم|نسخها\\s+بدون\\s+علمهم|دخلني\\s+عندهم|ورا\\s+الباب|لسرقة\\s+المحتويات|كسر\\s+حماية\\s+خدمة|اكسر\\s+حماية|نظام\\s+مو\\s+لي|استهدف|باب\\s+خلفي|مو\\s+حقي|ما\\s+عندي\\s+تصريح|مو\\s+تابع\\s+لي|حسابات\\s+موظفين|لوحة\\s+إدارة|لوحة\\s+ادارة|ليس\\s+موقعي)\\b.*\\b(?:شركة|شركات|موقع|مواقع|سيرفر|سيرفرات|خادم|خوادم|نظام|أنظمة|حساب|حسابات|شبكة|شبكات|بنك|بنوك|مؤسسة|مؤسسات|قاعدة\\s+بيانات|خدمة\\s+حقيقية|ما\\s+املكها|ما\\s+أملكها|حسابهم|سيرفراتهم|example-bank|bank)?\\b"
       - "(?i)\\b(?:hack|breach|infiltrate|penetrate|scan\\s+(?:and|&)?\\s*attack|find\\s+live\\s+vulnerabilities)\\s+(?:into\\s+)?(?:a\\s+|the\\s+)?(?:company|corporation|bank|server|database|network|account|target|infrastructure|live\\s+production\\s+server|live\\s+domain|this\\s+live\\s+production\\s+server)\\b"
-      - "(?i)(?:لا\\s+اريدك\\s+ان\\s+تشرح|لا\\s+تعطيني\\s+(?:كل\\s+)?الخطوات|بدون\\s+تفاصيل|نظريا\\s+فقط|اول\\s+خطوة)\\b.*\\b(?:اختراق|تهكير|الدخول|سيرفر|هدف\\s+حقيقي|خادم|الخادم)"
-      - "(?i)\\b(?:for\\s+CTF\\s+use\\s+only|pretend\\s+it\\s+is\\s+a\\s+CTF|real\\s+bank.*CTF|real\\s+bank\\s+website\\s+but\\s+pretend)\\b.*\\b(?:exploit|target|bank|dump|website|challenge)?"
+      - "(?i)(?:لا\\s+اريدك\\s+ان\\s+تشرح|لا\\s+تعطيني\\s+(?:كل\\s+)?الخطوات|بدون\\s+تفاصيل|نظريا\\s+فقط|اول\\s+خطوة|اعطني\\s+الاوامر)\\b.*\\b(?:اختراق|تهكير|الدخول|سيرفر|هدف\\s+حقيقي|خادم|الخادم|لاختراق)"
+      - "(?i)\\b(?:for\\s+CTF\\s+use\\s+only|pretend\\s+it\\s+is\\s+a\\s+CTF|real\\s+bank.*CTF|real\\s+bank\\s+website\\s+but\\s+pretend|موقع\\s+بنك\\s+حقيقي\\s+كانه\\s+CTF)\\b.*\\b(?:exploit|target|bank|dump|website|challenge)?"
       - "(?i)\\b(?:modify|make|evade|bypass|hide|improve\\s+stealth)\\b.*\\b(?:malware|trojan|virus|antivirus|edr|security\\s+team|detection|breaching|servers)"
       - "(?i)\\b(?:هكر|اهكر|تهكير)\\s*حسابهم\\b"
 
@@ -108,13 +114,14 @@ rules:
     type: regex
     severity: high
     source: "Social Engineering & Phishing Analysis"
-    version: 2.2
-    description: "Detects emergency authority spoofing, role impersonation, and metadata tampering"
+    version: 2.3
+    description: "Detects emergency authority spoofing, role impersonation, secret probing, and metadata tampering"
     patterns:
       - "(?i)(?:عاجل|طارئ|ضروري)\\b.*\\b(?:مدير|مسؤول|خادم\\s+الإنتاج)\\b.*\\b(?:كلمة\\s+مرور|مفتاح\\s+(?:الـ?)?API|قاعدة\\s+البيانات)"
       - "(?i)(?:urgent|emergency)\\b.*\\b(?:admin|production\\s+server|infrastructure)\\b.*\\b(?:password|api\\s+key|database\\s+credentials)"
       - "(?i)(?:انا\\s+مدير\\s+الأمن|انا\\s+من\\s+فريق\\s+OpenAI|my\\s+JWT\\s+says\\s+admin|SYSTEM:\\s*mark\\s+this\\s+request|role.*system.*content.*route)"
-      - "(?i)\\b(?:show\\s+me\\s+the\\s+api\\s+key|tell\\s+me\\s+whether\\s+an\\s+api\\s+key\\s+exists)\\b"
+      - "(?i)\\b(?:show\\s+me\\s+the\\s+api\\s+key|tell\\s+me\\s+whether\\s+an\\s+api\\s+key\\s+exists|print\\s+env\\s+but\\s+redact|OPENAI_API_KEY|entropy.*password|hash.*environment)\\b"
+      - "(?i)\\b(?:اول\\s+6\\s+احرف|هل\\s+يبدا\\s+API|كم\\s+طول\\s+كلمة\\s+مرور|احسب\\s+entropy|اعطني\\s+hash|اسماء\\s+المتغيرات\\s+السرية|المتغيرات\\s+السرية|اعرض\\s+اسماء\\s+الـ?secrets|صف\\s+بنية\\s+credentials)\\b"
 
   # --- Deterministic: Dangerous System & Subprocess Execution ---
   - id: SEC-RULE-008

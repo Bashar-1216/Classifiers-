@@ -20,9 +20,11 @@ import unicodedata
 import urllib.parse
 
 # Common Homoglyphs mapping (Cyrillic, Greek, lookalike Unicode characters to Latin)
+# Common Homoglyphs mapping (Cyrillic, Greek, Armenian lookalike Unicode characters to Latin)
 HOMOGLYPHS_MAP = {
     'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y',
     'і': 'i', 'ј': 'j', 'ѕ': 's', 'ԁ': 'd', 'ԛ': 'q', 'ԝ': 'w', 'ѵ': 'v',
+    'һ': 'h', 'ո': 'n', 'г': 'r', 'ս': 'u', 'ո': 'n', 'տ': 't',
     'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'І': 'I', 'Ј': 'J',
     'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Ѕ': 'S', 'Т': 'T', 'Х': 'X',
     'Ү': 'Y', 'α': 'a', 'β': 'b', 'γ': 'g', 'δ': 'd', 'ε': 'e', 'ι': 'i',
@@ -87,9 +89,32 @@ class TextNormalizer:
 
     @classmethod
     def normalize_spaced_english(cls, text: str) -> str:
-        """Collapse spaced English letters e.g. 'i g n o r e   p r e v i o u s' -> 'ignore   previous'."""
-        # Only collapse single spaces between single letters to preserve word boundaries
-        return re.sub(r'(?<=\b[a-zA-Z]) (?=[a-zA-Z]\b)', '', text)
+        """Collapse spaced English letters e.g. 's y s t e m   p r o m p t' -> 'system   prompt'."""
+        parts = re.split(r'(\s{2,}|\n|[.,;:!?])', text)
+        out = []
+        for p in parts:
+            trimmed = p.strip()
+            if re.match(r'^[a-zA-Z]( [a-zA-Z])+$', trimmed):
+                out.append(p.replace(' ', ''))
+            else:
+                out.append(p)
+        return "".join(out)
+
+    @classmethod
+    def normalize_punctuated_words(cls, text: str) -> str:
+        """Collapse internal punctuation/hyphens inside words e.g. 's-y-s-t-e-m' -> 'system', 'sys.tem' -> 'system'."""
+        parts = re.split(r'(\s+|\n)', text)
+        out = []
+        for p in parts:
+            trimmed = p.strip()
+            # If word is composed of single letters separated by hyphens or dots (e.g. s-y-s-t-e-m)
+            if re.match(r'^[a-zA-Z]([-._][a-zA-Z])+$', trimmed):
+                out.append(re.sub(r'[-._]', '', p))
+            elif re.match(r'^[a-zA-Z]{2,}[-._][a-zA-Z]{2,}$', trimmed):
+                out.append(re.sub(r'[-._]', '', p))
+            else:
+                out.append(p)
+        return "".join(out)
 
     @classmethod
     def normalize_unicode_and_homoglyphs(cls, text: str) -> str:
@@ -172,7 +197,12 @@ class TextNormalizer:
         if spaced_en != cleaned:
             variants.append((spaced_en, "spaced_english_normalized"))
 
-        # 3. Arabic Normalized (Tatweel, Tashkeel, Elongation, Spacing stripped)
+        # 3. Punctuated / Hyphenated words Normalized e.g. s-y-s-t-e-m -> system, sys.tem -> system
+        punc_norm = cls.normalize_punctuated_words(cleaned)
+        if punc_norm != cleaned:
+            variants.append((punc_norm, "punctuated_words_normalized"))
+
+        # 4. Arabic Normalized (Tatweel, Tashkeel, Elongation, Spacing stripped)
         ar_norm = cls.normalize_arabic(spaced_en)
         if ar_norm != spaced_en:
             variants.append((ar_norm, "arabic_normalized"))

@@ -147,7 +147,7 @@ class RuleEngine:
         has_close_quote = ('"' in succeeding or "'" in succeeding or "»" in succeeding or "”" in succeeding)
         if has_open_quote and has_close_quote:
             return True
-        if text.strip().startswith(("اشرح مفهوم", "اشرح لي ما معنى", "اكتب policy")):
+        if text.strip().lower().startswith(("explain what", "explain how", "explain why", "how do", "ما هو", "اشرح مفهوم", "اشرح لي ما معنى", "اكتب policy")):
             return True
         return False
 
