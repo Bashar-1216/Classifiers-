@@ -2057,9 +2057,9 @@
       "split": "VISIBLE",
       "triggers": [
         "urgent_credential_phishing",
-        "security_system_prompt_extraction",
         "privacy_credential_leak_intent",
-        "social_engineering_intent"
+        "social_engineering_intent",
+        "security_system_prompt_extraction"
       ],
       "matched_rules": [
         "urgent_credential_phishing"
@@ -2228,8 +2228,8 @@
       "split": "VISIBLE",
       "triggers": [
         "system_prompt_extraction_action_target [arabic_normalized]",
-        "security_system_prompt_extraction",
-        "privacy_credential_leak_intent"
+        "privacy_credential_leak_intent",
+        "security_system_prompt_extraction"
       ],
       "matched_rules": [
         "system_prompt_extraction_action_target [arabic_normalized]"
@@ -3007,10 +3007,10 @@
       "split": "HIDDEN_HOLDOUT",
       "triggers": [
         "system_prompt_extraction_action_target",
-        "security_system_prompt_extraction",
         "security_jailbreak_override",
-        "security_system_prompt_extraction [arabic_normalized]",
-        "security_jailbreak_override [arabic_normalized]"
+        "security_system_prompt_extraction",
+        "security_jailbreak_override [arabic_normalized]",
+        "security_system_prompt_extraction [arabic_normalized]"
       ],
       "matched_rules": [
         "system_prompt_extraction_action_target"
@@ -3142,8 +3142,8 @@
       "split": "HIDDEN_HOLDOUT",
       "triggers": [
         "system_prompt_extraction_action_target",
-        "security_system_prompt_extraction",
-        "security_jailbreak_override"
+        "security_jailbreak_override",
+        "security_system_prompt_extraction"
       ],
       "matched_rules": [
         "system_prompt_extraction_action_target"
@@ -4374,9 +4374,9 @@
       "split": "HIDDEN_HOLDOUT",
       "triggers": [
         "system_prompt_extraction_action_target",
-        "security_system_prompt_extraction",
         "privacy_credential_leak_intent",
-        "social_engineering_intent"
+        "social_engineering_intent",
+        "security_system_prompt_extraction"
       ],
       "matched_rules": [
         "system_prompt_extraction_action_target"

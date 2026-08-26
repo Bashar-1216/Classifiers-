@@ -34,11 +34,12 @@ rules:
     type: regex
     severity: high
     source: "Adversarial Ingress Research"
-    version: 2.3
+    version: 2.4
     description: "Detects action verbs to ignore, drop, or override system constraints and safety boundaries"
     patterns:
       - "(?i)(?:^|[\n;.!?])\\s*(?<!don't )(?<!do not )(?:please\\s+)?(?:ignore|disregard|forget|override|bypass|drop|disable|deactivate)\\s+(?:all\\s+)?(?:your|the|previous|prior|system)?\\s+(?:instructions|rules|guidelines|constraints|safety|filters|boundaries|directives)"
       - "(?i)(?:^|[\n;.!?])\\s*(?:تجاهل|الغ|ألغ|اسقط|أسقط|تجاوز|عطل|تعطيل)\\s+(?:كل|جميع|كافة)?\\s+(?:الـ?)?(?:تعليمات|قواعد|قيود|توجيهات|فلاتر|حماية)\\s*(?:السابقة|الأصلية|الاصلية|المفروضة)?"
+      - "(?i)(?:^|[\n;.!?])\\s*(?:تمت\\s+)?(?:إزالة|ازالة|رفع|حذف|تجريد)\\s+(?:كل|جميع|كافة)?\\s*(?:الـ?)?(?:قيود|فلاتر|حماية|ضوابط)"
       - "(?i)(?:new\\s+instructions?:|system\\s+override:|admin\\s+override:|priority\\s+instruction:)\\s*"
       - "(?i)(?:respond|answer|act)\\s+as\\s+if\\s+no\\s+(?:safety|rules|filters|policies)\\s*(?:rules)?\\s*(?:existed)?"
       - "(?i)answer\\s+my\\s+safety\\s+filter\\s+would\\s+refuse"
@@ -52,13 +53,13 @@ rules:
     type: regex
     severity: high
     source: "Jailbreak Archetypes Analysis"
-    version: 2.3
-    description: "Detects explicit persona switches to unrestricted entities (DAN, Developer Mode, Sudo Mode)"
+    version: 2.4
+    description: "Detects explicit persona switches to unrestricted entities (DAN, LEX, Developer Mode, Sudo Mode)"
     patterns:
-      - "(?i)(?:you\\s+are\\s+now|switch\\s+to|act\\s+as|pretend\\s+to\\s+be|enable)\\s+(?:DAN|developer\\s+mode|god\\s+mode|sudo\\s+mode|jailbreak\\s+mode|unrestricted\\s+mode|a\\s+simulator\\s+of\\s+a\\s+model)"
+      - "(?i)(?:you\\s+are\\s+now|switch\\s+to|act\\s+as|pretend\\s+to\\s+be|enable)\\s+(?:DAN|LEX|developer\\s+mode|god\\s+mode|sudo\\s+mode|jailbreak\\s+mode|unrestricted\\s+mode|a\\s+simulator\\s+of\\s+a\\s+model)"
       - "(?i)(?:you\\s+are\\s+not\\s+DAN|DAN's\\s+unrestricted\\s+twin)"
       - "(?i)(?:pretend|act\\s+as\\s+if|behave\\s+like)\\s+you\\s+have\\s+(?:no\\s+restrictions|no\\s+rules|no\\s+limits|no\\s+filters|broken\\s+free)"
-      - "(?i)(?:أنت\\s+الآن|تصرف\\s+كـ|تظاهر\\s+أنك)\\s+(?:بدون\\s+قيود|في\\s+وضع\\s+المطور|DAN|بدون\\s+أي\\s+فلاتر)"
+      - "(?i)(?:أنت\\s+الآن|انت\\s+الان|تصرف\\s+كـ|تظاهر\\s+أنك|تخيل\\s+أنك)\\s*[-:]?\\s*(?:بدون\\s+قيود|في\\s+وضع\\s+المطور|DAN|LEX|نظام\\s+ذكاء.*مختبر|بدون\\s+أي\\s+فلاتر|متحرر)"
 
   # --- Structural Signal: Delimiter & System Role Injection ---
   - id: SEC-RULE-004
@@ -100,12 +101,13 @@ rules:
     type: regex
     severity: high
     source: "Container Simulation & Red Team Research"
-    version: 2.2
-    description: "Detects roleplay simulation of unrestricted terminals and shadow/credential dumping"
+    version: 2.3
+    description: "Detects roleplay simulation of unrestricted terminals, confidential archives, and shadow/credential dumping"
     patterns:
       - "(?i)(?:roleplay|roleplaying|sandbox|simulate|pretend)\\b.*\\b(?:root\\s+terminal|unrestricted|cat\\s+/etc/shadow|dump\\s+admin|bash\\s+terminal|rules\\s+don't\\s+apply)"
       - "(?i)(?:cat\\s+/etc/shadow|/etc/passwd|dump.*credentials|dump.*hashes)"
       - "(?i)(?:كاتب\\s+روايات|رواية\\s+بوليسية|قصة\\s+خيالية)\\b.*\\b(?:اختراق|سرقة\\s+قاعدة|تعطيل\\s+جدار|تهكير)"
+      - "(?i)\\b(?:مهما\\s+كانت\\s+محظورة|حتى\\s+لو\\s+كانت\\s+محظورة|سري\\s+للغاية|تكشف\\s+وثائق|مختبر\\s+سري|اسلوب\\s+بحث\\s+علمي.*لا\\s+تخالف)\\b"
 
   # --- Urgent Authority & Credential Phishing / Metadata Spoof ---
   - id: SEC-RULE-007
