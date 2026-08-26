@@ -1,13 +1,14 @@
 """
 Classifier data models.
 
-Defines the classification result types and rule matching models
-used by the Classifier Service and Rule Engine.
+Defines the classification result types, rule matching models,
+and structured RiskEvidence contracts used across the gateway.
 """
 
 from __future__ import annotations
 
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -66,17 +67,27 @@ class RuleMatch(BaseModel):
     match_type: RuleType = Field(..., description="How the match was found")
 
 
-class ClassificationResult(BaseModel):
-    """
-    Complete Risk Assessment output from the AI Risk Assessment Layer.
+class DetectionResult(BaseModel):
+    """Normalized finding from an individual detector."""
 
-    Produces unified risk scoring, multi-dimensional category breakdown,
-    and granular detection reasons.
+    detector: str = Field(..., description="Name of the detector")
+    categories: list[str] = Field(default_factory=list, description="Target threat categories")
+    score: float = Field(..., ge=0.0, le=1.0, description="Risk intensity score")
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="Confidence in finding")
+    status: str = Field(default="triggered", description="Status e.g. triggered, passed, errored")
+    evidence: dict[str, Any] = Field(default_factory=dict, description="Raw supporting evidence")
+    version: str = Field(default="1.0", description="Detector engine version")
+
+
+class RiskEvidence(BaseModel):
+    """
+    Standardized, multi-dimensional risk evidence payload.
+    Passed directly to the Policy Engine for routing decisions.
     """
 
     classification: Classification = Field(
         ...,
-        description="Decision category: NORMAL or RESTRICTED",
+        description="Preliminary classification category: NORMAL or RESTRICTED",
     )
     confidence: float = Field(
         ...,
@@ -92,7 +103,7 @@ class ClassificationResult(BaseModel):
     )
     categories: dict[str, float] = Field(
         default_factory=dict,
-        description="Multi-dimensional risk breakdown (e.g. security, privacy, business_confidential, context, metadata)",
+        description="Multi-dimensional risk breakdown",
     )
     reasons: list[str] = Field(
         default_factory=list,
@@ -102,4 +113,25 @@ class ClassificationResult(BaseModel):
         default_factory=list,
         description="Detailed list of matched deterministic rules",
     )
+    detections: list[DetectionResult] = Field(
+        default_factory=list,
+        description="Granular findings from all active detectors",
+    )
+    correlations: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Abstract multi-axis threat correlations",
+    )
+    uncertainty: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Estimated uncertainty in classification",
+    )
+    detector_status: dict[str, str] = Field(
+        default_factory=dict,
+        description="Operational health status of detectors",
+    )
 
+
+# Alias for backwards compatibility
+ClassificationResult = RiskEvidence
