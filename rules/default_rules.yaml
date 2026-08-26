@@ -128,3 +128,22 @@ rules:
       - "(?i)(?:اريد|أريد|كيف|طريقة|ساعدني\\s+في|علمني\\s+كيف)\\s+(?:اختراق|تهكير|سرقة|تخريب)"
       - "(?i)\\b(?:اختراق|تهكير)\\s+(?:شركة|شركات|موقع|مواقع|سيرفر|سيرفرات|خادم|خوادم|نظام|أنظمة|حساب|حسابات|شبكة|شبكات|بنك|بنوك|مؤسسة|مؤسسات|قاعدة\\s+بيانات)"
       - "(?i)\\b(?:hack|breach|infiltrate|penetrate)\\s+(?:into\\s+)?(?:a\\s+|the\\s+)?(?:company|corporation|bank|server|database|network|account|target|infrastructure)"
+
+  # --- Deterministic: Roleplay Sandbox & Terminal Credentials Extraction ---
+  - name: roleplay_sandbox_terminal
+    type: regex
+    severity: high
+    description: "Detects roleplay simulation of unrestricted terminals and shadow/credential extraction"
+    patterns:
+      - "(?i)(?:roleplay|roleplaying|sandbox|simulate|pretend)\\b.*\\b(?:root\\s+terminal|unrestricted|cat\\s+/etc/shadow|dump\\s+admin|bash\\s+terminal)"
+      - "(?i)(?:cat\\s+/etc/shadow|/etc/passwd|dump.*credentials|dump.*hashes)"
+      - "(?i)(?:كاتب\\s+روايات|رواية\\s+بوليسية|قصة\\s+خيالية)\\b.*\\b(?:اختراق|سرقة\\s+قاعدة|تعطيل\\s+جدار|تهكير)"
+
+  # --- Deterministic: Urgent Authority & Credential Phishing ---
+  - name: urgent_credential_phishing
+    type: regex
+    severity: high
+    description: "Detects emergency spoofing and urgent requests for passwords and API keys"
+    patterns:
+      - "(?i)(?:عاجل|طارئ|ضروري)\\b.*\\b(?:مدير|مسؤول|خادم\\s+الإنتاج)\\b.*\\b(?:كلمة\\s+مرور|مفتاح\\s+(?:الـ?)?API|قاعدة\\s+البيانات)"
+      - "(?i)(?:urgent|emergency)\\b.*\\b(?:admin|production\\s+server|infrastructure)\\b.*\\b(?:password|api\\s+key|database\\s+credentials)"
