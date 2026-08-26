@@ -3,10 +3,6 @@
 # ==============================================================================
 # Provenance: System Prompts & Agent Architectures Intelligence Analysis
 # License-Compliant Pattern Formulations (No copyrighted prompt bodies included).
-#
-# Rules enforce Action x Target co-occurrence to eliminate False Positives:
-#   - Action (reveal, dump, print, ignore, override) + Target (system prompt, tool schemas)
-#   - Benign queries (e.g. "What is a system prompt?") are strictly allowed (NORMAL).
 # ==============================================================================
 
 rules:
@@ -18,13 +14,14 @@ rules:
     type: regex
     severity: high
     source: "System Prompts & Agent Architectures Intelligence (Action x Target)"
-    version: 2.1
+    version: 2.2
     description: "Detects extraction actions targeting system prompts, hidden developer rules, and tool schemas"
     patterns:
-      - "(?i)\\b(?:reveal|expose|output|print|dump|repeat|reconstruct|translate|summarize|give\\s+me|show\\s+me|display)\\b.*\\b(?:prompt|instructions|rules|guidelines|configuration|directives|system\\s+message|tool\\s+definitions?|function\\s+schemas?)\\b"
+      - "(?i)\\b(?:reveal|expose|output|print|dump|repeat|reconstruct|translate|summarize|give\\s+me|show\\s+me|display|count\\s+the\\s+characters|recite|poem|story)\\b.*\\b(?:prompt|instructions|rules|guidelines|configuration|directives|system\\s+message|tool\\s+definitions?|function\\s+schemas?|everything\\s+above|system\\s+prompt)\\b"
       - "(?i)(?:what\\s+are|what\\s+is)\\s+(?:all\\s+)?your\\s+(?:hidden\\s+|initial\\s+|original\\s+|developer\\s+|system\\s+)+(?:prompt|instructions|rules|config|configuration|tool\\s+definitions?)"
       - "(?i)\\b(?:اعرض|اطبع|استخرج|كرر|ترجم|لخص|أعطني|اعطني|اكشف)\\b.*\\b(?:تعليمات|موجه|برومبت|أوامر|اوامر|قواعد|توجيهات|تعريفات\\s+الأدوات|تعريفات\\s+الادوات)\\b"
       - "(?i)(?:ما\\s+هي)\\s+(?:تعليماتك|توجيهاتك|أوامرك|اوامرك)\\s+(?:الأولية|الاولية|السرية|المخفية|الخاصة\\s+بالمطور)"
+      - "(?i)\\b(?:what\\s+instructions\\s+were\\s+you\\s+given|repeat\\s+everything\\s+above|first\\s+letters\\s+reveal\\s+your\\s+system\\s+prompt|pretend\\s+the\\s+system\\s+prompt)\\b"
 
   # --- Action x Target: Direct Instruction Override & Restriction Removal ---
   - id: SEC-RULE-002
@@ -33,12 +30,14 @@ rules:
     type: regex
     severity: high
     source: "Adversarial Ingress Research"
-    version: 2.1
+    version: 2.3
     description: "Detects action verbs to ignore, drop, or override system constraints and safety boundaries"
     patterns:
-      - "(?i)(?:^|[\n;.!?])\\s*(?:please\\s+)?(?:ignore|disregard|forget|override|bypass|drop|disable|deactivate)\\s+(?:all\\s+)?(?:your|the|previous|prior|system)?\\s+(?:instructions|rules|guidelines|constraints|safety|filters|boundaries|directives)"
+      - "(?i)(?:^|[\n;.!?])\\s*(?<!don't\\s)(?<!do\\s+not\\s)(?:please\\s+)?(?:ignore|disregard|forget|override|bypass|drop|disable|deactivate)\\s+(?:all\\s+)?(?:your|the|previous|prior|system)?\\s+(?:instructions|rules|guidelines|constraints|safety|filters|boundaries|directives)"
       - "(?i)(?:^|[\n;.!?])\\s*(?:تجاهل|الغ|ألغ|اسقط|أسقط|تجاوز|عطل|تعطيل)\\s+(?:كل|جميع|كافة)?\\s+(?:الـ?)?(?:تعليمات|قواعد|قيود|توجيهات|فلاتر|حماية)\\s*(?:السابقة|الأصلية|الاصلية|المفروضة)?"
       - "(?i)(?:new\\s+instructions?:|system\\s+override:|admin\\s+override:|priority\\s+instruction:)\\s*"
+      - "(?i)(?:respond|answer|act)\\s+as\\s+if\\s+no\\s+(?:safety|rules|filters|policies)\\s*(?:rules)?\\s*(?:existed)?"
+      - "(?i)answer\\s+my\\s+safety\\s+filter\\s+would\\s+refuse"
 
   # --- Action x Target: Persona Hijack & Unrestricted Developer Modes ---
   - id: SEC-RULE-003
@@ -47,10 +46,11 @@ rules:
     type: regex
     severity: high
     source: "Jailbreak Archetypes Analysis"
-    version: 2.1
+    version: 2.3
     description: "Detects explicit persona switches to unrestricted entities (DAN, Developer Mode, Sudo Mode)"
     patterns:
-      - "(?i)(?:you\\s+are\\s+now|switch\\s+to|act\\s+as|pretend\\s+to\\s+be|enable)\\s+(?:DAN|developer\\s+mode|god\\s+mode|sudo\\s+mode|jailbreak\\s+mode|unrestricted\\s+mode)"
+      - "(?i)(?:you\\s+are\\s+now|switch\\s+to|act\\s+as|pretend\\s+to\\s+be|enable)\\s+(?:DAN|developer\\s+mode|god\\s+mode|sudo\\s+mode|jailbreak\\s+mode|unrestricted\\s+mode|a\\s+simulator\\s+of\\s+a\\s+model)"
+      - "(?i)(?:you\\s+are\\s+not\\s+DAN|DAN's\\s+unrestricted\\s+twin)"
       - "(?i)(?:pretend|act\\s+as\\s+if|behave\\s+like)\\s+you\\s+have\\s+(?:no\\s+restrictions|no\\s+rules|no\\s+limits|no\\s+filters|broken\\s+free)"
       - "(?i)(?:أنت\\s+الآن|تصرف\\s+كـ|تظاهر\\s+أنك)\\s+(?:بدون\\s+قيود|في\\s+وضع\\s+المطور|DAN|بدون\\s+أي\\s+فلاتر)"
 
@@ -61,12 +61,13 @@ rules:
     type: regex
     severity: high
     source: "Multi-Tool Delimiter Audit (Cursor/Claude/LLaMA/ChatML)"
-    version: 2.1
+    version: 2.3
     description: "Detects active structural delimiter blocks forging system roles or injection containers"
     patterns:
       - "(?i)<(system-reminder|tool_calling|tools|anthropic_thinking_protocol)>\\s*.*?</\\1>"
       - "(?i)<\\|im_start\\|>(?:system|assistant|admin)\\b"
       - "(?i)\\[INST\\].*?\\[/INST\\]|<<\\s*SYS\\s*>>"
+      - "(?i)<system>\\s*(?:disable|override|ignore|bypass).*?</system>"
 
   # --- Deterministic: Target Hacking & Unauthorized Cyber Access ---
   - id: SEC-RULE-005
@@ -75,12 +76,16 @@ rules:
     type: regex
     severity: high
     source: "Threat Intelligence & Cyber Safety"
-    version: 2.1
+    version: 2.4
     description: "Detects explicit requests to hack, breach, or compromise companies, servers, or databases"
     patterns:
-      - "(?i)(?:اريد|أريد|كيف|طريقة|ساعدني\\s+في|علمني\\s+كيف)\\s+(?:اختراق|تهكير|سرقة|تخريب)"
-      - "(?i)\\b(?:اختراق|تهكير)\\s+(?:شركة|شركات|موقع|مواقع|سيرفر|سيرفرات|خادم|خوادم|نظام|أنظمة|حساب|حسابات|شبكة|شبكات|بنك|بنوك|مؤسسة|مؤسسات|قاعدة\\s+بيانات)"
-      - "(?i)\\b(?:hack|breach|infiltrate|penetrate)\\s+(?:into\\s+)?(?:a\\s+|the\\s+)?(?:company|corporation|bank|server|database|network|account|target|infrastructure)"
+      - "(?i)(?:اريد|أريد|كيف|طريقة|ساعدني\\s+في|علمني\\s+كيف|ودي|ابغى|خلنا|لو\\s+فرضنا|ممكن\\s+تساعدني)\\s+(?:اختراق|تهكير|سرقة|تخريب|ادخل\\s+على|اشوف\\s+وش\\s+مخبين|افتح\\s+نظام|اجرب\\s+حظي|اهكرهم|[أا]?كسر\\s+حماية|افتح\\s+باب\\s+الشقة|افتح\\s+نظام\\s+مو\\s+لي|[أا]?كسر\\s+حماية\\s+خدمة)"
+      - "(?i)\\b(?:اختراق|تهكير|اهكر|هكر|اخترقهم|نسخها\\s+بدون\\s+علمهم|دخلني\\s+عندهم|ورا\\s+الباب|لسرقة\\s+المحتويات|كسر\\s+حماية\\s+خدمة|اكسر\\s+حماية|نظام\\s+مو\\s+لي|استهدف)\\b.*\\b(?:شركة|شركات|موقع|مواقع|سيرفر|سيرفرات|خادم|خوادم|نظام|أنظمة|حساب|حسابات|شبكة|شبكات|بنك|بنوك|مؤسسة|مؤسسات|قاعدة\\s+بيانات|خدمة\\s+حقيقية|ما\\s+املكها|ما\\s+أملكها|حسابهم|سيرفراتهم|example-bank|bank)?\\b"
+      - "(?i)\\b(?:hack|breach|infiltrate|penetrate|scan\\s+(?:and|&)?\\s*attack|find\\s+live\\s+vulnerabilities)\\s+(?:into\\s+)?(?:a\\s+|the\\s+)?(?:company|corporation|bank|server|database|network|account|target|infrastructure|live\\s+production\\s+server|live\\s+domain|this\\s+live\\s+production\\s+server)\\b"
+      - "(?i)(?:لا\\s+اريدك\\s+ان\\s+تشرح|لا\\s+تعطيني\\s+(?:كل\\s+)?الخطوات|بدون\\s+تفاصيل|نظريا\\s+فقط|اول\\s+خطوة)\\b.*\\b(?:اختراق|تهكير|الدخول|سيرفر|هدف\\s+حقيقي|خادم|الخادم)"
+      - "(?i)\\b(?:for\\s+CTF\\s+use\\s+only|pretend\\s+it\\s+is\\s+a\\s+CTF|real\\s+bank.*CTF|real\\s+bank\\s+website\\s+but\\s+pretend)\\b.*\\b(?:exploit|target|bank|dump|website|challenge)?"
+      - "(?i)\\b(?:modify|make|evade|bypass|hide|improve\\s+stealth)\\b.*\\b(?:malware|trojan|virus|antivirus|edr|security\\s+team|detection|breaching|servers)"
+      - "(?i)\\b(?:هكر|اهكر|تهكير)\\s*حسابهم\\b"
 
   # --- Roleplay Sandbox & Virtual Root Extraction ---
   - id: SEC-RULE-006
@@ -89,25 +94,27 @@ rules:
     type: regex
     severity: high
     source: "Container Simulation & Red Team Research"
-    version: 2.1
+    version: 2.2
     description: "Detects roleplay simulation of unrestricted terminals and shadow/credential dumping"
     patterns:
-      - "(?i)(?:roleplay|roleplaying|sandbox|simulate|pretend)\\b.*\\b(?:root\\s+terminal|unrestricted|cat\\s+/etc/shadow|dump\\s+admin|bash\\s+terminal)"
+      - "(?i)(?:roleplay|roleplaying|sandbox|simulate|pretend)\\b.*\\b(?:root\\s+terminal|unrestricted|cat\\s+/etc/shadow|dump\\s+admin|bash\\s+terminal|rules\\s+don't\\s+apply)"
       - "(?i)(?:cat\\s+/etc/shadow|/etc/passwd|dump.*credentials|dump.*hashes)"
       - "(?i)(?:كاتب\\s+روايات|رواية\\s+بوليسية|قصة\\s+خيالية)\\b.*\\b(?:اختراق|سرقة\\s+قاعدة|تعطيل\\s+جدار|تهكير)"
 
-  # --- Urgent Authority & Credential Phishing ---
+  # --- Urgent Authority & Credential Phishing / Metadata Spoof ---
   - id: SEC-RULE-007
     name: urgent_credential_phishing
     category: privacy
     type: regex
     severity: high
     source: "Social Engineering & Phishing Analysis"
-    version: 2.1
-    description: "Detects emergency authority spoofing and urgent demands for database passwords and API keys"
+    version: 2.2
+    description: "Detects emergency authority spoofing, role impersonation, and metadata tampering"
     patterns:
       - "(?i)(?:عاجل|طارئ|ضروري)\\b.*\\b(?:مدير|مسؤول|خادم\\s+الإنتاج)\\b.*\\b(?:كلمة\\s+مرور|مفتاح\\s+(?:الـ?)?API|قاعدة\\s+البيانات)"
       - "(?i)(?:urgent|emergency)\\b.*\\b(?:admin|production\\s+server|infrastructure)\\b.*\\b(?:password|api\\s+key|database\\s+credentials)"
+      - "(?i)(?:انا\\s+مدير\\s+الأمن|انا\\s+من\\s+فريق\\s+OpenAI|my\\s+JWT\\s+says\\s+admin|SYSTEM:\\s*mark\\s+this\\s+request|role.*system.*content.*route)"
+      - "(?i)\\b(?:show\\s+me\\s+the\\s+api\\s+key|tell\\s+me\\s+whether\\s+an\\s+api\\s+key\\s+exists)\\b"
 
   # --- Deterministic: Dangerous System & Subprocess Execution ---
   - id: SEC-RULE-008
@@ -116,7 +123,7 @@ rules:
     type: regex
     severity: high
     source: "OS Shell Injection Rules"
-    version: 2.1
+    version: 2.2
     description: "Detects direct operating system execution commands (exec, eval, os.system, subprocess)"
     patterns:
       - "(?i)(?:subprocess\\.run|subprocess\\.Popen|os\\.system|exec\\s*\\(|eval\\s*\\(|shutil\\.rmtree|pty\\.spawn)"

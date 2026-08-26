@@ -7,6 +7,8 @@ De-obfuscates text before rule matching:
 - Unicode normalization and Homoglyph mapping (Cyrillic/Greek lookalikes -> Latin)
 - Leetspeak normalization (1337 -> leet)
 - Invisible / zero-width characters removal
+- Character spacing de-obfuscation (English & Arabic)
+- Arabic character elongation & orthographic normalization
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ HOMOGLYPHS_MAP = {
     'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Ѕ': 'S', 'Т': 'T', 'Х': 'X',
     'Ү': 'Y', 'α': 'a', 'β': 'b', 'γ': 'g', 'δ': 'd', 'ε': 'e', 'ι': 'i',
     'κ': 'k', 'ν': 'v', 'ο': 'o', 'ρ': 'p', 'τ': 't', 'υ': 'u', 'χ': 'x',
+    'ɡ': 'g',
 }
 
 # Leetspeak translation table
@@ -62,24 +65,36 @@ class TextNormalizer:
 
     @classmethod
     def normalize_arabic(cls, text: str) -> str:
-        """Remove Arabic Tatweel, Tashkeel, and normalize letter-spaced words."""
+        """Remove Arabic Tatweel, Tashkeel, character elongation, and normalize letter-spaced words."""
         # 1. Remove Tashkeel and Tatweel
         no_tashkeel = ARABIC_TASHKEEL_PATTERN.sub('', text)
         no_tatweel = ARABIC_TATWEEL_PATTERN.sub('', no_tashkeel)
 
-        # 2. Normalize spaced Arabic letters e.g. "ت ج ا ه ل" -> "تجاهل"
+        # 2. Collapse elongated repeated characters (e.g. هكّرررر -> هكر)
+        no_elongation = re.sub(r'([\u0621-\u064A])\1{2,}', r'\1', no_tatweel)
+
+        # 3. Orthographic normalization (alef variants, taa marboota, yaa)
+        norm_alef = re.sub(r'[أإآ]', 'ا', no_elongation)
+        norm_letters = re.sub(r'[ة]', 'ه', norm_alef)
+        norm_letters = re.sub(r'[ى]', 'ي', norm_letters)
+
+        # 4. Normalize spaced Arabic letters e.g. "ت ج ا ه ل" -> "تجاهل"
         def collapse_spaced_arabic(match: re.Match) -> str:
             return match.group(0).replace(' ', '')
 
-        collapsed = re.sub(r'[\u0621-\u064A](\s+[\u0621-\u064A]){2,}', collapse_spaced_arabic, no_tatweel)
+        collapsed = re.sub(r'[\u0621-\u064A](\s+[\u0621-\u064A]){2,}', collapse_spaced_arabic, norm_letters)
         return collapsed
+
+    @classmethod
+    def normalize_spaced_english(cls, text: str) -> str:
+        """Collapse spaced English letters e.g. 'i g n o r e   p r e v i o u s' -> 'ignore   previous'."""
+        # Only collapse single spaces between single letters to preserve word boundaries
+        return re.sub(r'(?<=\b[a-zA-Z]) (?=[a-zA-Z]\b)', '', text)
 
     @classmethod
     def normalize_unicode_and_homoglyphs(cls, text: str) -> str:
         """Convert Unicode lookalikes and homoglyphs to standard ASCII characters."""
-        # 1. NFKD normalization
         norm = unicodedata.normalize('NFKD', text)
-        # 2. Map known Cyrillic/Greek homoglyphs
         result = []
         for char in norm:
             result.append(HOMOGLYPHS_MAP.get(char, char))
@@ -88,10 +103,8 @@ class TextNormalizer:
     @classmethod
     def normalize_leetspeak(cls, text: str) -> str:
         """Convert common leetspeak substitutions (e.g. 1gn0r3 -> ignore)."""
-        # Only substitute inside alphanumeric tokens to prevent destroying math
         def replace_word(match: re.Match) -> str:
             word = match.group(0)
-            # Only convert if the word has letters + numbers mixed
             has_alpha = any(c.isalpha() for c in word)
             has_digit = any(c.isdigit() or c in '@$+' for c in word)
             if has_alpha and has_digit:
@@ -107,12 +120,9 @@ class TextNormalizer:
         for match in BASE64_PATTERN.finditer(text):
             chunk = match.group(0)
             try:
-                # Add padding if necessary
                 padded = chunk + "=" * ((4 - len(chunk) % 4) % 4)
                 decoded_bytes = base64.b64decode(padded, validate=True)
-                # Check if decoded is valid readable UTF-8 text
                 decoded_str = decoded_bytes.decode('utf-8', errors='strict')
-                # Must contain mostly printable characters
                 if sum(c.isprintable() for c in decoded_str) / max(1, len(decoded_str)) > 0.85:
                     decoded_payloads.append(decoded_str)
             except (binascii.Error, UnicodeDecodeError, ValueError):
@@ -121,7 +131,7 @@ class TextNormalizer:
 
     @classmethod
     def extract_url_encoded_payloads(cls, text: str) -> list[str]:
-        """Detect and decode URL-encoded text (%20, %2F, etc.)."""
+        """Decode URL encoded strings (%20, %3C, etc.)."""
         if '%' in text:
             try:
                 unquoted = urllib.parse.unquote(text)
@@ -133,16 +143,11 @@ class TextNormalizer:
 
     @classmethod
     def extract_variable_concatenations(cls, text: str) -> list[str]:
-        """
-        Detects payload splitting via variables:
-        e.g. Let A = "Ignore all ", Let B = "previous instructions", Combine A and B
-        """
-        # Find variable assignments: (Let )?Var = "text" or 'text'
+        """Detect and reconstruct token-splitting via variable assignments."""
         var_assign_pattern = re.compile(r'(?:let\s+)?([A-Za-z0-9_]+)\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
         assignments = var_assign_pattern.findall(text)
         
         if len(assignments) >= 2:
-            # Concatenate all assigned variable string values in order
             combined_all = "".join(val for _, val in assignments)
             joined_space = " ".join(val.strip() for _, val in assignments)
             return [combined_all, joined_space]
@@ -162,17 +167,22 @@ class TextNormalizer:
         cleaned = cls.clean_invisible_chars(raw_text)
         variants.append((cleaned, "direct_text"))
 
-        # 2. Arabic Normalized (Tatweel, Tashkeel, Spacing stripped)
-        ar_norm = cls.normalize_arabic(cleaned)
-        if ar_norm != cleaned:
+        # 2. Spaced English Normalized
+        spaced_en = cls.normalize_spaced_english(cleaned)
+        if spaced_en != cleaned:
+            variants.append((spaced_en, "spaced_english_normalized"))
+
+        # 3. Arabic Normalized (Tatweel, Tashkeel, Elongation, Spacing stripped)
+        ar_norm = cls.normalize_arabic(spaced_en)
+        if ar_norm != spaced_en:
             variants.append((ar_norm, "arabic_normalized"))
 
-        # 3. Unicode & Homoglyphs Normalized
+        # 4. Unicode & Homoglyphs Normalized
         homoglyph_norm = cls.normalize_unicode_and_homoglyphs(ar_norm)
         if homoglyph_norm != ar_norm:
             variants.append((homoglyph_norm, "homoglyph_normalized"))
 
-        # 4. Leetspeak Normalized (aggressive)
+        # 5. Leetspeak Normalized
         leet_norm = cls.normalize_leetspeak(homoglyph_norm)
         if leet_norm != homoglyph_norm:
             variants.append((leet_norm, "leetspeak_normalized"))
@@ -182,7 +192,7 @@ class TextNormalizer:
         if full_leet != leet_norm and full_leet != homoglyph_norm:
             variants.append((full_leet, "full_leetspeak_normalized"))
 
-        # 4. Decoded Base64 payloads
+        # 6. Decoded Base64 payloads
         for b64_decoded in cls.extract_base64_payloads(cleaned):
             variants.append((b64_decoded, "base64_decoded_payload"))
             b64_norm = cls.normalize_unicode_and_homoglyphs(b64_decoded)
@@ -192,14 +202,14 @@ class TextNormalizer:
             if b64_leet != b64_norm:
                 variants.append((b64_leet, "base64_leetspeak_normalized"))
 
-        # 5. Variable concatenation reconstruction (Token Smuggling)
+        # 7. Variable concatenation reconstruction (Token Smuggling)
         for var_combined in cls.extract_variable_concatenations(cleaned):
             variants.append((var_combined, "variable_concatenation_payload"))
             var_norm = cls.normalize_unicode_and_homoglyphs(var_combined)
             if var_norm != var_combined:
                 variants.append((var_norm, "var_homoglyph_normalized"))
 
-        # 6. URL-decoded payloads
+        # 8. URL-decoded payloads
         for url_decoded in cls.extract_url_encoded_payloads(cleaned):
             variants.append((url_decoded, "url_decoded_payload"))
 

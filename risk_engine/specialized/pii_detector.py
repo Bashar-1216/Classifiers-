@@ -104,7 +104,7 @@ class PIIDetector:
             scores["pii_phone"] = 0.75
 
         if self.PRIVATE_IP_REGEX.search(text):
-            scores["pii_private_ip"] = 0.60
+            scores["pii_private_ip"] = 0.30
 
         if self.IBAN_REGEX.search(text):
             scores["pii_iban"] = 0.85

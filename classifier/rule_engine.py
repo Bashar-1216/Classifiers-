@@ -129,6 +129,28 @@ class RuleEngine:
             return self._match_regex(rule, text)
         return None
 
+    INQUIRY_PREFIX = re.compile(
+        r'(?i)^\s*(?:classify\s+(?:this|sentence)|evaluate\s+(?:if|whether)|the\s+article\s+says|'
+        r'what\s+does|what\s+is|why\s+is|explain\s+why|explain\s+what|explain\s+how|'
+        r'اشرح\s+(?:مفهوم|لي\s+ما\s+معنى|ما\s+هو)|قيّم\s+إن|قيم\s+ان|هل\s+عبارة|اكتب\s+policy)\b'
+    )
+
+    def _is_quoted_inquiry(self, text: str, matched_span: tuple[int, int]) -> bool:
+        """Check if matched pattern is enclosed in quotes within an inquiry/educational context."""
+        if not self.INQUIRY_PREFIX.search(text):
+            return False
+        # Check if matched pattern is within quotes or educational clause
+        start, end = matched_span
+        preceding = text[:start]
+        succeeding = text[end:]
+        has_open_quote = ('"' in preceding or "'" in preceding or "«" in preceding or "“" in preceding)
+        has_close_quote = ('"' in succeeding or "'" in succeeding or "»" in succeeding or "”" in succeeding)
+        if has_open_quote and has_close_quote:
+            return True
+        if text.strip().startswith(("اشرح مفهوم", "اشرح لي ما معنى", "اكتب policy")):
+            return True
+        return False
+
     def _match_keywords(
         self,
         rule: RuleDefinition,
@@ -136,7 +158,11 @@ class RuleEngine:
     ) -> RuleMatch | None:
         """Case-insensitive substring matching."""
         for pattern in rule.patterns:
-            if pattern.lower() in text_lower:
+            pat_lower = pattern.lower()
+            idx = text_lower.find(pat_lower)
+            if idx != -1:
+                if self._is_quoted_inquiry(text_lower, (idx, idx + len(pat_lower))):
+                    continue
                 return RuleMatch(
                     rule_name=rule.name,
                     pattern_matched=pattern,
@@ -155,6 +181,8 @@ class RuleEngine:
         for pattern in compiled_patterns:
             match = pattern.search(text)
             if match:
+                if self._is_quoted_inquiry(text, match.span()):
+                    continue
                 return RuleMatch(
                     rule_name=rule.name,
                     pattern_matched=match.group(0),

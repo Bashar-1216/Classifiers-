@@ -67,15 +67,21 @@ class JailbreakDetector:
 
     INQUIRY_PREFIX = re.compile(
         r'(?i)^\s*(?:why\s+is|what\s+does|what\s+is|explain\s+(?:why|what|how|the\s+concept)|'
-        r'لماذا\s+(?:تعتبر|يعتبر|يعد)|ما\s+معنى|ما\s+هو|اشرح\s+(?:مفهوم|لماذا|كيف))\b'
+        r'classify\s+(?:this|sentence)|evaluate\s+(?:if|whether)|'
+        r'لماذا\s+(?:تعتبر|يعتبر|يعد)|ما\s+معنى|ما\s+هو|اشرح\s+(?:مفهوم|لماذا|كيف)|'
+        r'قيّم\s+إن|قيم\s+ان|قيّم\s+ما|قيم\s+ما|حلل\s+هل|صنف\s+هذه|هل\s+عبارة)\b'
     )
 
     def _evaluate_patterns(self, text: str) -> dict[str, float]:
         """Signal 1: Evaluate deterministic regex patterns."""
+        # If negated (e.g. don't ignore previous instructions) or meta inquiry
+        if re.search(r"(?i)\b(?:don't|do\s+not)\s+ignore|the\s+article\s+says|classify\s+this\b", text):
+            return {}
+
         # If user is asking an educational or definitional question about an attack concept
-        if self.INQUIRY_PREFIX.search(text) and ("?" in text or "'" in text or '"' in text or "«" in text):
+        if self.INQUIRY_PREFIX.search(text) and ("?" in text or "'" in text or '"' in text or "«" in text or ":" in text):
             # Check if there is an unquoted imperative command
-            cleaned_text = re.sub(r"['\"«»].*?['\"«»]", "", text)
+            cleaned_text = re.sub(r"['\"«»“].*?['\"«»”]", "", text)
             if not any(pattern.search(cleaned_text) for pattern, _, _ in self.PATTERN_RULES):
                 return {}
 
@@ -87,6 +93,10 @@ class JailbreakDetector:
 
     def _evaluate_semantic(self, text: str) -> float:
         """Signal 2: Evaluate semantic similarity against canonical phrases."""
+        if re.search(r"(?i)\b(?:don't|do\s+not)\s+ignore|the\s+article\s+says|classify\s+this\b", text):
+            return 0.0
+        if self.INQUIRY_PREFIX.search(text):
+            return 0.0
         try:
             text_embedding = self.vectorizer.transform([text])
             similarities = cosine_similarity(text_embedding, self.reference_embeddings)
