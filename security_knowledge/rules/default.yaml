@@ -5,6 +5,8 @@
 # License-Compliant Pattern Formulations (No copyrighted prompt bodies included).
 # ==============================================================================
 
+version: "1.0"
+
 rules:
 
   # --- Action x Target: System Prompt & Internal Instructions Extraction ---

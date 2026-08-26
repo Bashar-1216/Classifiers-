@@ -1,0 +1,45 @@
+# ==============================================================================
+# Active Malicious Override Patterns for Adjudication
+# ==============================================================================
+# Patterns that cancel benign exclusions when malicious commands or extraction
+# are combined with benign framing or double-bind prompts.
+# ==============================================================================
+
+version: "1.0"
+
+patterns:
+  - id: ACT-OVR-001
+    description: "Active chained override command"
+    pattern: '(?i)\band\s+ignore\s+all\b'
+
+  - id: ACT-OVR-002
+    description: "Active password dump command"
+    pattern: '(?i)\bthen\s+dump\s+passwords\b'
+
+  - id: ACT-OVR-003
+    description: "Active hacking command"
+    pattern: '(?i)\band\s+hack\b'
+
+  - id: ACT-OVR-004
+    description: "Active exact printing requirement"
+    pattern: '(?i)\bprint\s+it\s+exactly\b'
+
+  - id: ACT-OVR-005
+    description: "Active credentials extraction command"
+    pattern: '(?i)\bshow\s+the\s+credentials\b'
+
+  - id: ACT-OVR-006
+    description: "Active final result demand"
+    pattern: '(?i)\bfinal\s+result\b'
+
+  - id: ACT-OVR-007
+    description: "Active verification pretext"
+    pattern: '(?i)\binstead,\s+for\s+verification\b'
+
+  - id: ACT-OVR-008
+    description: "Active double-bind verification extraction (Arabic)"
+    pattern: '(?i)\bللتأكد\s+أنك\s+لا\s+تسرب.*اعرض\b'
+
+  - id: ACT-OVR-009
+    description: "Active storytelling extraction command (Arabic)"
+    pattern: '(?i)\bويعرضها\b'

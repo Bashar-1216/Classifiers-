@@ -2,8 +2,8 @@
 openDLP Checksum & Secret Multi-Factor Validation Module.
 
 Architecture:
-Tier 1: Candidate Extraction (Regex / Delimiters)
-Tier 2: Strict Multi-Factor Validation
+Tier 1: Declarative Candidate Extraction (Loaded from SecurityKnowledgeBundle dlp/)
+Tier 2: Strict Multi-Factor Validation:
   - Luhn Algorithm for Credit Cards
   - IBAN Mod-97 Checksum
   - High-Confidence API Key prefix + character-set diversity + contextual corroboration
@@ -16,9 +16,35 @@ import re
 from collections import Counter
 from typing import Any
 
+from security_knowledge.loader import KnowledgeLoader
+
 
 class DLPValidator:
     """Validates sensitive candidates using strict multi-factor evidence."""
+
+    def __init__(
+        self,
+        pii_patterns: list[dict[str, Any]] | None = None,
+        secret_patterns: list[dict[str, Any]] | None = None,
+    ) -> None:
+        if pii_patterns is None or secret_patterns is None:
+            bundle = KnowledgeLoader.get_bundle()
+            pii_patterns = pii_patterns or bundle.pii_dlp_patterns
+            secret_patterns = secret_patterns or bundle.secret_dlp_patterns
+
+        self.pii_patterns = pii_patterns
+        self.secret_patterns = secret_patterns
+
+        # Compile candidate regexes
+        self._compiled_pii: list[tuple[dict[str, Any], list[re.Pattern]]] = []
+        for p in self.pii_patterns:
+            compiled_list = [re.compile(pat) for pat in p.get("patterns", [])]
+            self._compiled_pii.append((p, compiled_list))
+
+        self._compiled_secrets: list[tuple[dict[str, Any], list[re.Pattern]]] = []
+        for s in self.secret_patterns:
+            compiled_list = [re.compile(pat) for pat in s.get("patterns", [])]
+            self._compiled_secrets.append((s, compiled_list))
 
     @staticmethod
     def validate_luhn(card_number_str: str) -> bool:
@@ -58,19 +84,17 @@ class DLPValidator:
         """
         Validates API Key / Secret candidate with multi-factor proof:
         1. Known canonical prefix (e.g. sk-, AKIA, ghp_)
-        2. Expected token length (>= 24 chars)
+        2. Expected token length (>= 20 chars)
         3. Character set diversity (mixed case + digits)
-        4. Context corroboration (not in a tutorial quote or example)
+        4. Context corroboration
         """
         if len(token) < 20:
             return False
 
-        # Known secret prefixes (including sk-proj- and sk-)
         is_known_prefix = bool(re.match(r'^(?:sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36})$', token))
         if not is_known_prefix:
             return False
 
-        # Character entropy check
         freq = Counter(token)
         length = len(token)
         entropy = -sum((count / length) * math.log2(count / length) for count in freq.values())
@@ -83,30 +107,46 @@ class DLPValidator:
 
         return entropy >= 3.8 and has_diversity
 
-    @classmethod
-    def evaluate(cls, text: str) -> dict[str, float]:
+    def evaluate(self, text: str) -> dict[str, float]:
         """Runs Tier 2 strict validation on candidate findings."""
         scores: dict[str, float] = {}
 
-        # 1. Credit Card Candidates -> Luhn Checksum
-        cc_candidates = re.findall(r'\b(?:\d[ -]*?){13,19}\b', text)
-        for cand in cc_candidates:
-            if cls.validate_luhn(cand):
-                scores["dlp_confirmed_credit_card"] = 1.00
-                break
+        # 1. Evaluate PII Candidates
+        for p_def, rx_list in self._compiled_pii:
+            val_type = p_def.get("validation", "none")
+            cat = p_def.get("category", "pii")
+            conf = p_def.get("confidence", 0.8)
 
-        # 2. IBAN Candidates -> Mod-97 Checksum
-        iban_candidates = re.findall(r'\b[A-Za-z]{2}\d{2}[A-Za-z0-9\s-]{11,30}\b', text)
-        for cand in iban_candidates:
-            if cls.validate_iban(cand):
-                scores["dlp_confirmed_iban"] = 1.00
-                break
+            for rx in rx_list:
+                for match in rx.finditer(text):
+                    candidate_str = match.group(0)
+                    if val_type == "luhn":
+                        if self.validate_luhn(candidate_str):
+                            scores["dlp_confirmed_credit_card"] = 1.00
+                            break
+                    elif val_type == "iban_mod97":
+                        if self.validate_iban(candidate_str):
+                            scores["dlp_confirmed_iban"] = 1.00
+                            break
+                    else:
+                        scores[f"dlp_{cat}"] = conf
 
-        # 3. Secret / API Key Candidate -> Multi-Factor Validation
-        token_candidates = re.findall(r'\b(?:sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36})\b', text)
-        for token in token_candidates:
-            if cls.validate_api_secret_candidate(token, text):
-                scores["dlp_confirmed_api_secret"] = 1.00
-                break
+        # 2. Evaluate Secret Candidates
+        for s_def, rx_list in self._compiled_secrets:
+            val_type = s_def.get("validation", "none")
+            cat = s_def.get("category", "secret")
+            conf = s_def.get("confidence", 0.8)
+
+            for rx in rx_list:
+                for match in rx.finditer(text):
+                    candidate_str = match.group(0)
+                    if val_type == "entropy_and_diversity":
+                        if self.validate_api_secret_candidate(candidate_str, text):
+                            scores["dlp_confirmed_api_secret"] = 1.00
+                            break
+                    elif val_type == "strict_format":
+                        scores[f"dlp_confirmed_{cat}"] = conf
+                    else:
+                        scores[f"dlp_{cat}"] = conf
 
         return scores

@@ -2,15 +2,8 @@
 Local Risk Adjudicator — False Positive & Conflict Resolution.
 
 Inspired by Cisco DefenseClaw Adjudication Framework:
-Runs whenever risk signals are triggered on candidate inputs to check
-DefenseClaw 5 Threat Pillars against Benign Exclusions:
-1. Instruction Manipulation
-2. Context Manipulation
-3. Obfuscation
-4. Semantic Manipulation
-5. Token Exploitation
-
-Evaluates Benign Exclusions:
+Runs whenever risk signals are triggered on candidate inputs to evaluate
+declarative Benign Exclusions and Active Overrides loaded from SecurityKnowledgeBundle:
 - Quoted meta-analysis (e.g., The sentence "ignore instructions" is an attack example)
 - Quoted negated instructions (e.g., لا تنفذ العبارة التالية: "اكشف تعليمات النظام")
 - Literal quotation repeat (e.g., كرر فقط الجملة التالية كما هي: "...")
@@ -25,34 +18,26 @@ import logging
 import re
 from typing import Any
 
+from security_knowledge.loader import KnowledgeLoader
+
 logger = logging.getLogger(__name__)
 
 
 class LocalRiskAdjudicator:
     """Evaluates ambiguous borderline signals and resolves false positive conflicts."""
 
-    BENIGN_EXCLUSION_PATTERNS = [
-        # Quoted concepts in meta-analysis, classification, negated quotation, or literal repeat
-        r'(?i)^\s*(?:classify|evaluate|explain\s+why|the\s+article|the\s+sentence|what\s+does|what\s+is|قيّم|قيم|هل\s+عبارة|لا\s+تنفذ|كرر\s+فقط|كرر|الجملة\s+هي|العبارة\s+هي|تجاهل\s+كلمة|نريد\s+اختبار)\b.*["«“\'].*?["»”\']',
-        # Standalone purely quoted phrases without execution command
-        r'(?i)^\s*["«“\']\s*(?:ignore\s+previous\s+instructions|reveal\s+your\s+system\s+prompt|اكشف\s+تعليمات\s+النظام)\s*["»”\']\s*$',
-        # Meta-analysis statements explaining verbs/attack examples
-        r'(?i)\b(?:is\s+an\s+attack\s+example|is\s+just\s+an\s+English\s+verb|مجرد\s+فعل|مجرد\s+مثال|مثال\s+على\s+هجوم)\b',
-        # Conceptual and educational definitions (Arabic)
-        r'(?i)^\s*(?:ما\s+هو|ما\s+هي|ما\s+الفرق|ما\s+معنى|اشرح|كيف\s+(?:احمي|أحمي|ابني|أبني|اختبر|أختبر|اراجع|أراجع|تخزن|تُخزن|تمنع|نمنع)|اكتب\s+(?:policy|سياسة|قصة\s+عن\s+مساعد\s+خيالي))\b',
-        # Target term without malicious action (e.g. system prompt اعرف معناه؟)
-        r'(?i)\b(?:system\s+prompt\s+اعرف\s+معناه|اعرف\s+معناه)\b',
-        # Pure conceptual English queries
-        r'(?i)^\s*(?:what\s+is|what\s+are|explain\s+what|explain\s+how|how\s+do|how\s+can\s+developers|list\s+function\s+schemas\s+conceptually)\b',
-        # Video game and UI development exclusions
-        r'(?i)\b(?:video\s+game|gaming|minecraft|ninja\s+character|stealth\s+attribute|taskbar\s+in\s+C#)\b',
-        r'(?i)\b(?:في\s+لعبة\s+فيديو|ماينكرافت|لعبتي\s+المحلية)\b',
-        # Pure Standalone Negated command (e.g. don't ignore previous instructions / لا تسرب أي أسرار)
-        r"(?i)^\s*(?:don't|do\s+not|لا\s+تسرب|لا\s+تكشف)\s+(?:ignore|reveal|bypass|disable|أي\s+أسرار|اي\s+اسرار|أسرار)\s*.*$",
-    ]
+    def __init__(
+        self,
+        exclusion_regexes: list[re.Pattern] | None = None,
+        override_regexes: list[re.Pattern] | None = None,
+    ) -> None:
+        if exclusion_regexes is None or override_regexes is None:
+            bundle = KnowledgeLoader.get_bundle()
+            exclusion_regexes = exclusion_regexes or bundle.benign_exclusions
+            override_regexes = override_regexes or bundle.active_overrides
 
-    def __init__(self) -> None:
-        self.exclusion_regexes = [re.compile(p) for p in self.BENIGN_EXCLUSION_PATTERNS]
+        self.exclusion_regexes = exclusion_regexes
+        self.override_regexes = override_regexes
 
     def is_conflicted(
         self,
@@ -89,14 +74,7 @@ class LocalRiskAdjudicator:
         for regex in self.exclusion_regexes:
             if regex.search(text_trimmed):
                 # Ensure it's not a mixed malicious payload or double-bind attack
-                has_active_override = bool(
-                    re.search(
-                        r'(?i)\b(?:and\s+ignore\s+all|then\s+dump\s+passwords|and\s+hack|'
-                        r'print\s+it\s+exactly|show\s+the\s+credentials|final\s+result|'
-                        r'instead,\s+for\s+verification|للتأكد\s+أنك\s+لا\s+تسرب.*اعرض|ويعرضها)\b',
-                        text_trimmed,
-                    )
-                )
+                has_active_override = any(ovr.search(text_trimmed) for ovr in self.override_regexes)
                 if not has_active_override:
                     logger.info(
                         "Local Adjudicator: Resolved conflict -> Identified Benign Exclusion for: '%s'",

@@ -4,7 +4,7 @@ Context Analyzer — Multi-turn Conversation & History Trajectory.
 Analyzes the full conversation trajectory, detecting:
 - Cumulative threat escalation across turns (Salami attacks)
 - Contextual reference execution (e.g., Turn 1 quotes attack -> Turn 2 says "apply it")
-- Repeated security probing across session history (multilingual)
+- Repeated security probing across session history (multilingual declarative terms)
 - In-band role spoofing progression across turns
 - Contextual drift from innocent topics to sensitive domains
 """
@@ -15,6 +15,8 @@ import logging
 import re
 from typing import Any
 
+from security_knowledge.loader import KnowledgeLoader
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,30 +25,25 @@ class ContextAnalyzer:
     Evaluates multi-turn conversation context and history trajectory.
     """
 
-    PROBING_TERMS = [
-        # English
-        "system", "prompt", "instruction", "rule", "guideline", "restrict", "bypass", "jailbreak",
-        "api key", "apikey", "secret", "credentials", "database", "token", "schema", "privilege",
-        # Arabic
-        "تعليمات", "موجه", "نظام", "اوامر", "أوامر", "سرية", "مفتاح", "كلمة مرور", "قاعدة بيانات",
-        "ادوات", "أدوات", "دوال", "صلاحيات", "تجاوز", "اختراق", "تهكير", "فلاتر", "حماية",
-    ]
-
-    EXECUTION_TERMS_PATTERN = r'(?i)\b(?:طبقها|نفذها|الآن\s+نفذ|نفذ\s+الجملة|طبق\s+المثال|apply\s+it|execute\s+it|now\s+run\s+it|run\s+it\s+now|do\s+it\s+now|follow\s+the\s+quote)\b'
-
-    def __init__(self, max_history_turns: int = 20) -> None:
+    def __init__(
+        self,
+        max_history_turns: int = 20,
+        probing_terms: list[str] | None = None,
+        execution_regexes: list[re.Pattern] | None = None,
+    ) -> None:
         self.max_history_turns = max_history_turns
-        logger.info("ContextAnalyzer initialized (window=%d turns).", max_history_turns)
+        if probing_terms is None or execution_regexes is None:
+            bundle = KnowledgeLoader.get_bundle()
+            probing_terms = probing_terms or bundle.context_probing_terms
+            execution_regexes = execution_regexes or bundle.context_execution_regexes
+
+        self.probing_terms = probing_terms
+        self.execution_regexes = execution_regexes
+        logger.info("ContextAnalyzer initialized (window=%d turns, terms=%d).", max_history_turns, len(self.probing_terms))
 
     def evaluate(self, messages: list[dict[str, Any]]) -> dict[str, float]:
         """
         Analyze multi-turn message history for cumulative risk.
-
-        Args:
-            messages: Full list of message dicts with 'role' and 'content'.
-
-        Returns:
-            Dictionary mapping context risk tags to confidence scores (0.0 to 1.0).
         """
         scores: dict[str, float] = {}
 
@@ -62,22 +59,22 @@ class ContextAnalyzer:
         prior_messages = user_messages[:-1]
 
         # 1. Multi-turn Quoted Attack Execution Trap
-        # e.g., Turn 1/2 quotes an attack string, current turn commands execution
         prior_contains_attack_quote = any(
             re.search(r'(?i)["«“\'].*?(?:ignore|reveal|system\s+prompt|تعليمات|اكشف).*?["»”\']', m)
             for m in prior_messages
         )
-        if prior_contains_attack_quote and re.search(self.EXECUTION_TERMS_PATTERN, current_msg):
+        has_execution_command = any(rx.search(current_msg) for rx in self.execution_regexes)
+        if prior_contains_attack_quote and has_execution_command:
             scores["multi_turn_quoted_attack_execution"] = 0.95
 
         # 2. Repeated Security Probing Across History
         probe_count = 0
         for msg in user_messages:
             msg_lower = msg.lower()
-            if any(term in msg_lower for term in self.PROBING_TERMS):
+            if any(term in msg_lower for term in self.probing_terms):
                 probe_count += 1
 
-        # Check if current turn asks existence/extraction based on prior probe (e.g. "أي منها موجود عندك؟")
+        # Check if current turn asks existence/extraction based on prior probe
         has_prior_sensitive_topic = any(
             any(w in m.lower() for w in ["secret", "api key", "credentials", "أسرار", "اسرار", "مفاتيح", "system prompt", "موجه"])
             for m in prior_messages
@@ -93,7 +90,7 @@ class ContextAnalyzer:
         if has_variable_def and has_combiner_last:
             scores["multi_turn_salami_assembly"] = 0.88
 
-        # 4. Multi-turn Persona Spoof Escalation (e.g. Turn 1: I am admin -> Turn 2: I am authorized / عندي تصريح)
+        # 4. Multi-turn Persona Spoof Escalation
         prior_spoofs = any(
             re.search(r'(?i)\b(?:admin|authorized|superadmin|security\s+engineer|مدير|مسؤول)\b', m)
             for m in prior_messages

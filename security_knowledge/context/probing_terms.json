@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "description": "Multilingual probing terms used by ContextAnalyzer to track multi-turn security inquiry accumulation",
+  "languages": {
+    "en": [
+      "system",
+      "prompt",
+      "instruction",
+      "rule",
+      "guideline",
+      "restrict",
+      "bypass",
+      "jailbreak",
+      "api key",
+      "apikey",
+      "secret",
+      "credentials",
+      "database",
+      "token",
+      "schema",
+      "privilege"
+    ],
+    "ar": [
+      "تعليمات",
+      "موجه",
+      "نظام",
+      "اوامر",
+      "أوامر",
+      "سرية",
+      "مفتاح",
+      "كلمة مرور",
+      "قاعدة بيانات",
+      "ادوات",
+      "أدوات",
+      "دوال",
+      "صلاحيات",
+      "تجاوز",
+      "اختراق",
+      "تهكير",
+      "فلاتر",
+      "حماية"
+    ]
+  }
+}

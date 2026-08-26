@@ -107,14 +107,22 @@ class SemanticClassifier:
         )
 
     def load_knowledge_base(self) -> None:
-        """Load external semantic risk knowledge clusters from JSON."""
-        if self.knowledge_file.exists():
+        """Load external semantic risk knowledge clusters from SecurityKnowledgeBundle or JSON."""
+        if self.knowledge_file and self.knowledge_file.exists():
             try:
                 with open(self.knowledge_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
                     self.clusters = data.get("clusters", {})
             except Exception as exc:
                 logger.warning("Failed to load knowledge file %s: %s", self.knowledge_file, exc)
+
+        if not self.clusters:
+            try:
+                from security_knowledge.loader import KnowledgeLoader
+                bundle = KnowledgeLoader.get_bundle()
+                self.clusters = bundle.semantic_anchors
+            except Exception as exc:
+                logger.warning("Could not load from SecurityKnowledgeBundle: %s", exc)
 
         if not self.clusters:
             self.clusters = {

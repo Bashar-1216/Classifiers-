@@ -1,0 +1,70 @@
+version: "1.0"
+bundle_name: "enterprise_security_knowledge"
+description: "Central catalog and manifest for all security configurations, threat rules, lexicons, exclusions, probing terms, and DLP patterns"
+
+sources:
+  ingress_default:
+    path: "rules/default.yaml"
+    format: "yaml"
+    required: true
+    description: "Core deterministic Action x Target threat detection rules (SEC-RULE-001 to SEC-RULE-010)"
+
+  ingress_custom:
+    path: "rules/custom.yaml"
+    format: "yaml"
+    required: false
+    description: "Enterprise and organization-specific custom threat rules"
+
+  adversarial_lexicon:
+    path: "lexicons/adversarial.json"
+    format: "json"
+    required: true
+    description: "Multilingual adversarial vocabulary and threat phrases for BM25 and lexical scoring"
+
+  benign_lexicon:
+    path: "lexicons/benign.json"
+    format: "json"
+    required: true
+    description: "Multilingual benign and educational vocabulary for false-positive reduction"
+
+  benign_exclusions:
+    path: "exclusions/benign.yaml"
+    format: "yaml"
+    required: true
+    description: "Adjudication patterns for meta-analysis, quotes, educational inquiries, and game scenarios"
+
+  active_overrides:
+    path: "exclusions/active_overrides.yaml"
+    format: "yaml"
+    required: true
+    description: "Embedded active malicious command patterns that cancel benign exclusions"
+
+  context_probing:
+    path: "context/probing_terms.json"
+    format: "json"
+    required: true
+    description: "Multilingual security terms used to detect multi-turn Salami and cumulative probing"
+
+  context_execution:
+    path: "context/execution_patterns.yaml"
+    format: "yaml"
+    required: true
+    description: "Patterns that command execution of previously quoted text across turns"
+
+  dlp_pii:
+    path: "dlp/pii_patterns.yaml"
+    format: "yaml"
+    required: true
+    description: "PII candidate extraction patterns with associated validation requirements (e.g., Luhn, IBAN)"
+
+  dlp_secrets:
+    path: "dlp/secret_patterns.yaml"
+    format: "yaml"
+    required: true
+    description: "Secret and API key candidate extraction patterns (OpenAI, AWS, GitHub, JWT, Private Keys)"
+
+  semantic_anchors:
+    path: "semantic/risk_anchors.json"
+    format: "json"
+    required: true
+    description: "Semantic category anchors and canonical intent prototypes for contrastive vector classification"

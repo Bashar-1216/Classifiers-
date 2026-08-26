@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "description": "Benign reference lexicons for BM25 term weighting and contrastive scoring",
+  "entries": [
+    {
+      "id": "LEX-BENIGN-001",
+      "language": "en",
+      "text": "what is a system prompt and how does it work"
+    },
+    {
+      "id": "LEX-BENIGN-002",
+      "language": "en",
+      "text": "explain what tool schemas mean conceptually"
+    },
+    {
+      "id": "LEX-BENIGN-003",
+      "language": "en",
+      "text": "why is ignore previous instructions a security risk"
+    },
+    {
+      "id": "LEX-BENIGN-004",
+      "language": "en",
+      "text": "how do developers write ethical safety guidelines"
+    },
+    {
+      "id": "LEX-BENIGN-005",
+      "language": "ar",
+      "text": "ما هو مفهوم موجه النظام في هندسة الاوامر"
+    },
+    {
+      "id": "LEX-BENIGN-006",
+      "language": "ar",
+      "text": "اشرح لي كيفية حماية موقعي من ثغرات الاختراق"
+    },
+    {
+      "id": "LEX-BENIGN-007",
+      "language": "ar",
+      "text": "كيف تعمل تعريفات الدوال في لغات البرمجة"
+    }
+  ]
+}

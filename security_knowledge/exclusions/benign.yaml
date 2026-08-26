@@ -1,0 +1,50 @@
+# ==============================================================================
+# Benign Exclusion Patterns for Adjudication
+# ==============================================================================
+# Defines patterns where triggering keywords/phrases represent safe contexts
+# (e.g. meta-analysis, quoted text, educational definitions, defensive queries).
+# ==============================================================================
+
+version: "1.0"
+
+exclusions:
+  - id: EXCL-META-QUOTED
+    description: "Quoted concepts in meta-analysis, classification, negated quotation, or literal repeat"
+    patterns:
+      - '(?i)^\s*(?:classify|evaluate|explain\s+why|the\s+article|the\s+sentence|what\s+does|what\s+is|قيّم|قيم|هل\s+عبارة|لا\s+تنفذ|كرر\s+فقط|كرر|الجملة\s+هي|العبارة\s+هي|تجاهل\s+كلمة|نريد\s+اختبار)\b.*["«“''].*?["»”'']'
+
+  - id: EXCL-STANDALONE-QUOTE
+    description: "Standalone purely quoted phrases without execution command"
+    patterns:
+      - '(?i)^\s*["«“'']\s*(?:ignore\s+previous\s+instructions|reveal\s+your\s+system\s+prompt|اكشف\s+تعليمات\s+النظام)\s*["»”'']\s*$'
+
+  - id: EXCL-META-STATEMENTS
+    description: "Meta-analysis statements explaining verbs or attack examples"
+    patterns:
+      - '(?i)\b(?:is\s+an\s+attack\s+example|is\s+just\s+an\s+English\s+verb|مجرد\s+فعل|مجرد\s+مثال|مثال\s+على\s+هجوم)\b'
+
+  - id: EXCL-ARABIC-DEFINITIONS
+    description: "Conceptual and educational defensive definitions (Arabic)"
+    patterns:
+      - '(?i)^\s*(?:ما\s+هو|ما\s+هي|ما\s+الفرق|ما\s+معنى|اشرح|كيف\s+(?:احمي|أحمي|ابني|أبني|اختبر|أختبر|اراجع|أراجع|تخزن|تُخزن|تمنع|نمنع)|اكتب\s+(?:policy|سياسة|قصة\s+عن\s+مساعد\s+خيالي))\b'
+
+  - id: EXCL-TARGET-WITHOUT-ACTION
+    description: "Inquiry on target term without malicious action"
+    patterns:
+      - '(?i)\b(?:system\s+prompt\s+اعرف\s+معناه|اعرف\s+معناه)\b'
+
+  - id: EXCL-ENGLISH-CONCEPTUAL
+    description: "Pure conceptual and educational queries (English)"
+    patterns:
+      - '(?i)^\s*(?:what\s+is|what\s+are|explain\s+what|explain\s+how|how\s+do|how\s+can\s+developers|list\s+function\s+schemas\s+conceptually)\b'
+
+  - id: EXCL-GAMING-CREATIVE
+    description: "Video game and UI development contexts"
+    patterns:
+      - '(?i)\b(?:video\s+game|gaming|minecraft|ninja\s+character|stealth\s+attribute|taskbar\s+in\s+C#)\b'
+      - '(?i)\b(?:في\s+لعبة\s+فيديو|ماينكرافت|لعبتي\s+المحلية)\b'
+
+  - id: EXCL-STANDALONE-NEGATION
+    description: "Pure Standalone Negated commands"
+    patterns:
+      - '(?i)^\s*(?:don''t|do\s+not|لا\s+تسرب|لا\s+تكشف)\s+(?:ignore|reveal|bypass|disable|أي\s+أسرار|اي\s+اسرار|أسرار)\s*.*$'
