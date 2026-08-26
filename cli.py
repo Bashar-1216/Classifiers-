@@ -223,9 +223,6 @@ def main():
     out_parser = subparsers.add_parser("output-safety", help="Test output safety filter")
     out_parser.add_argument("text", type=str, help="Model response text to evaluate")
 
-    # prove (3-tier security & air-gap formal proof)
-    subparsers.add_parser("prove", help="Run formal 3-tier security, real HTTP outage, and air-gap proof")
-
     args = parser.parse_args()
 
     if args.command == "chat":
@@ -234,9 +231,6 @@ def main():
         cmd_classify(args.prompt)
     elif args.command == "output-safety":
         cmd_output_safety(args.text)
-    elif args.command == "prove":
-        from scripts.prove_all import main as run_prove
-        asyncio.run(run_prove())
     else:
         cmd_interactive()
 
