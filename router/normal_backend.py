@@ -27,7 +27,7 @@ class NormalBackend:
         self,
         backend_url: str = "https://api.groq.com/openai/v1",
         api_key: str | None = None,
-        default_model: str = "openai/gpt-oss-120b",
+        default_model: str = "qwen/qwen3.8-27b",
         timeout: int = 60,
     ) -> None:
         self.backend_url = backend_url.rstrip("/")

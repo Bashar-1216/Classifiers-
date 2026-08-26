@@ -26,8 +26,8 @@ class Settings(BaseSettings):
         alias="NORMAL_BACKEND_API_KEY",
     )
     normal_backend_model: str = Field(
-        default="openai/gpt-oss-120b",
-        description="Model name for Groq inference (e.g. openai/gpt-oss-120b, qwen/qwen3.8-27b, allam-2-7b)",
+        default="qwen/qwen3.8-27b",
+        description="Model name for Groq inference (e.g. qwen/qwen3.8-27b, openai/gpt-oss-120b, allam-2-7b)",
         alias="NORMAL_BACKEND_MODEL",
     )
     normal_backend_timeout: int = Field(
