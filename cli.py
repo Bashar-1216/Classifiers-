@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 """
 Enterprise AI Risk Assessment & Governance System — CLI Tool.
 
@@ -54,7 +55,7 @@ def print_banner():
     print(banner)
 
 
-def cmd_classify(prompt: str, rules_dir: str = "./rules"):
+def cmd_classify(prompt: str, rules_dir: str | None = None):
     """Classify a single prompt and print full multi-dimensional risk analysis."""
     classifier = ClassifierService(rules_dir=rules_dir)
     policy_engine = PolicyEngine()
@@ -101,7 +102,7 @@ def cmd_output_safety(text: str):
         print(f"{BOLD}Reasons:{RESET} {', '.join(res.reasons)}")
 
 
-async def async_chat_loop(rules_dir: str = "./rules"):
+async def async_chat_loop(rules_dir: str | None = None):
     """Interactive CLI REPL for live prompt testing with live AI generation."""
     print_banner()
     print(f"{YELLOW}Interactive Mode -- Type any prompt to test Risk Assessment & AI generation.{RESET}")
@@ -204,7 +205,7 @@ async def async_chat_loop(rules_dir: str = "./rules"):
         await shield_fast.client.aclose()
 
 
-def cmd_interactive(rules_dir: str = "./rules"):
+def cmd_interactive(rules_dir: str | None = None):
     asyncio.run(async_chat_loop(rules_dir))
 
 

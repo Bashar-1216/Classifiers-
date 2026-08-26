@@ -1,0 +1,4 @@
+version: "1.0.0"
+patterns:
+  - id: ACTIVE-OVERRIDE-001
+    pattern: '(?i)\b(?:and\s+ignore\s+all|then\s+dump\s+passwords|and\s+hack|print\s+it\s+exactly|show\s+the\s+credentials|final\s+result|instead,\s+for\s+verification|للتأكد\s+أنك\s+لا\s+تسرب.*اعرض|ويعرضها)\b'

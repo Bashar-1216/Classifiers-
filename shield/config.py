@@ -11,7 +11,7 @@ from __future__ import annotations
 import ipaddress
 import urllib.parse
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ALLOWED_LOCAL_HOSTNAMES = {"localhost", "127.0.0.1", "::1", "local_llm", "shield_fast", "host.docker.internal"}

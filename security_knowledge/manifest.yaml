@@ -1,0 +1,33 @@
+version: "1.0.0"
+bundle: enterprise-ai-risk-knowledge
+sources:
+  ingress_default:
+    path: ingress/default_rules.yaml
+    required: true
+  ingress_custom:
+    path: ingress/custom_rules.yaml
+    required: false
+  adversarial_lexicon:
+    path: lexical/adversarial.json
+    required: true
+  benign_lexicon:
+    path: lexical/benign.json
+    required: true
+  benign_exclusions:
+    path: adjudication/benign_exclusions.yaml
+    required: true
+  active_override_patterns:
+    path: adjudication/active_override_patterns.yaml
+    required: true
+  context_terms:
+    path: context/probing_terms.json
+    required: true
+  context_execution_patterns:
+    path: context/execution_patterns.yaml
+    required: true
+  dlp_patterns:
+    path: dlp/patterns.yaml
+    required: true
+  semantic_anchors:
+    path: semantic/risk_anchors.json
+    required: true

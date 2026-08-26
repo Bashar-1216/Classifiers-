@@ -12,8 +12,7 @@ import logging
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, status
 
 from shield.config import ShieldConfig
 from shield.judge import LocalJudge

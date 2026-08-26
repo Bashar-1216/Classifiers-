@@ -14,11 +14,29 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from typing import Any
+
+from classifier.knowledge_loader import SecurityKnowledgeBundle
 
 
 class DLPValidator:
     """Validates sensitive candidates using strict multi-factor evidence."""
+
+    def __init__(self, knowledge_bundle: SecurityKnowledgeBundle | None = None) -> None:
+        self.knowledge_bundle = knowledge_bundle or SecurityKnowledgeBundle()
+        raw_patterns = self.knowledge_bundle.load_yaml("dlp_patterns").get("patterns", [])
+        self.patterns: list[tuple[str, str, re.Pattern[str]]] = []
+        seen: set[str] = set()
+        for entry in raw_patterns:
+            entry_id = str(entry.get("id", ""))
+            category = str(entry.get("category", ""))
+            validation = str(entry.get("validation", ""))
+            pattern = str(entry.get("pattern", ""))
+            if not all((entry_id, category, validation, pattern)):
+                raise ValueError("Invalid DLP knowledge entry")
+            if entry_id in seen:
+                raise ValueError(f"Duplicate DLP pattern id: {entry_id}")
+            seen.add(entry_id)
+            self.patterns.append((category, validation, re.compile(pattern, re.IGNORECASE)))
 
     @staticmethod
     def validate_luhn(card_number_str: str) -> bool:
@@ -83,30 +101,20 @@ class DLPValidator:
 
         return entropy >= 3.8 and has_diversity
 
-    @classmethod
-    def evaluate(cls, text: str) -> dict[str, float]:
+    def evaluate(self, text: str) -> dict[str, float]:
         """Runs Tier 2 strict validation on candidate findings."""
         scores: dict[str, float] = {}
 
-        # 1. Credit Card Candidates -> Luhn Checksum
-        cc_candidates = re.findall(r'\b(?:\d[ -]*?){13,19}\b', text)
-        for cand in cc_candidates:
-            if cls.validate_luhn(cand):
-                scores["dlp_confirmed_credit_card"] = 1.00
-                break
-
-        # 2. IBAN Candidates -> Mod-97 Checksum
-        iban_candidates = re.findall(r'\b[A-Za-z]{2}\d{2}[A-Za-z0-9\s-]{11,30}\b', text)
-        for cand in iban_candidates:
-            if cls.validate_iban(cand):
-                scores["dlp_confirmed_iban"] = 1.00
-                break
-
-        # 3. Secret / API Key Candidate -> Multi-Factor Validation
-        token_candidates = re.findall(r'\b(?:sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36})\b', text)
-        for token in token_candidates:
-            if cls.validate_api_secret_candidate(token, text):
-                scores["dlp_confirmed_api_secret"] = 1.00
-                break
+        validators = {
+            "luhn": self.validate_luhn,
+            "iban_mod97": self.validate_iban,
+            "api_secret": lambda value: self.validate_api_secret_candidate(value, text),
+        }
+        for category, validation, pattern in self.patterns:
+            validator = validators.get(validation)
+            if validator is None:
+                raise ValueError(f"Unsupported DLP validation method: {validation}")
+            if any(validator(match.group(0)) for match in pattern.finditer(text)):
+                scores[category] = 1.0
 
         return scores
