@@ -1,0 +1,68 @@
+version: "3.9"
+
+services:
+  # ============================================================================
+  # 1. Main Security Gateway & Classifier
+  # ============================================================================
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    container_name: sofa_gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_PORT=8000
+      - SHIELD_BACKEND_URL=http://shield_service:8080/v1/shield/process
+      - NORMAL_BACKEND_API_BASE=https://openrouter.ai/api/v1
+      - NORMAL_BACKEND_MODEL=qwen/qwen3.8-27b
+    networks:
+      - public_ingress_net      # Connects to clients & internet for cloud API calls
+      - shield_internal_net     # Strictly internal channel to Shield enclave
+
+  # ============================================================================
+  # 2. Shield Isolated Processing Enclave
+  # ============================================================================
+  # Connected ONLY to the internal network (internal: true).
+  # NO internet gateway, NO default route, NO cloud API keys passed.
+  # Physically incapable of reaching external cloud providers.
+  # ============================================================================
+  shield_service:
+    build:
+      context: .
+      dockerfile: Dockerfile.shield
+    container_name: sofa_shield_enclave
+    restart: unless-stopped
+    environment:
+      - SHIELD_PORT=8080
+      - SHIELD_MODE=local_isolated
+      - LOCAL_LLM_URL=http://local_llm:8000/v1
+      - LOCAL_LLM_MODEL=meta-llama/Meta-Llama-3-8B-Instruct
+      - MAX_REQUEST_SIZE=64000
+    networks:
+      - shield_internal_net     # ONLY internal network (ZERO internet egress)
+    depends_on:
+      - local_llm
+
+  # ============================================================================
+  # 3. Local GPU / CPU Inference Backend (Air-Gapped)
+  # ============================================================================
+  local_llm:
+    image: vllm/vllm-openai:latest
+    container_name: sofa_local_llm
+    restart: unless-stopped
+    environment:
+      - MODEL=meta-llama/Meta-Llama-3-8B-Instruct
+    networks:
+      - shield_internal_net     # ONLY internal network (ZERO internet egress)
+
+networks:
+  # Ingress network for external client traffic & cloud routing
+  public_ingress_net:
+    driver: bridge
+
+  # Air-Gapped Isolated Network: internal=true disables default gateway to the internet
+  shield_internal_net:
+    driver: bridge
+    internal: true

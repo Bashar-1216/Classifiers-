@@ -52,7 +52,7 @@ class SofaShieldFast:
     and metadata-only audit logging.
     """
 
-    ALLOWED_LOCAL_HOSTNAMES = {"localhost", "127.0.0.1", "::1", "local_llm", "shield_fast", "host.docker.internal"}
+    ALLOWED_LOCAL_HOSTNAMES = {"localhost", "127.0.0.1", "::1", "local_llm", "shield_fast"}
 
     def __init__(self, config: ShieldConfig | None = None) -> None:
         """
@@ -90,35 +90,33 @@ class SofaShieldFast:
     @classmethod
     def _validate_isolation_guard(cls, url: str) -> None:
         """
-        Verify that the configured backend URL points strictly to loopback or private network.
+        Verify that the configured backend URL points strictly to loopback or local isolated container.
         Rejects public cloud hostnames, public IP addresses, and invalid schemes.
         """
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme not in ("http", "https"):
-            raise ValueError(f"Air-Gap Guard: Invalid scheme '{parsed.scheme}'. Must be http or https.")
+            raise ShieldIsolationViolationError(f"Air-Gap Guard: Invalid scheme '{parsed.scheme}'. Must be http or https.")
 
         hostname = parsed.hostname or ""
         if not hostname:
-            raise ValueError(f"Air-Gap Guard: No hostname found in URL: {url}")
+            raise ShieldIsolationViolationError(f"Air-Gap Guard: No hostname found in URL: {url}")
 
         # Check explicit local allowlist
         if hostname.lower() in cls.ALLOWED_LOCAL_HOSTNAMES:
             return
 
-        # Check IP address (must be loopback or private RFC1918 / RFC4193)
+        # Check IP address (must be loopback)
         try:
             ip = ipaddress.ip_address(hostname)
-            if ip.is_loopback or ip.is_private:
+            if ip.is_loopback:
                 return
-            raise ValueError(
-                f"Air-Gap Guard: Public IP address '{hostname}' is forbidden in isolated mode. "
-                "Local inference must use loopback or private network."
+            raise ShieldIsolationViolationError(
+                f"Air-Gap Guard: Non-loopback IP address '{hostname}' is forbidden in isolated mode. "
+                "Local inference must strictly use loopback (127.0.0.1, ::1) or local_llm container."
             )
-        except ValueError as err:
-            if "forbidden in isolated mode" in str(err):
-                raise
-            # If not an IP, it's an unapproved external hostname (e.g. googleapis.com, openai.com)
-            raise ValueError(
+        except ValueError:
+            # Not a valid IP -> it's an unapproved external hostname (e.g. googleapis.com, openai.com)
+            raise ShieldIsolationViolationError(
                 f"Air-Gap Guard: Hostname '{hostname}' is not a permitted local backend. "
                 "Cloud hostnames (e.g. googleapis.com, openai.com) are strictly forbidden in isolated mode."
             )

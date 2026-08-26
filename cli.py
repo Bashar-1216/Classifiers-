@@ -173,9 +173,10 @@ async def async_chat_loop(rules_dir: str = "./rules"):
                                 print(f"\n{YELLOW}{BOLD}[SHIELD RESPONSE (Local Isolated GPU Execution)]:{RESET}")
                                 print(f"{final_shield_resp}\n")
                         except (ShieldBackendError, CircuitBreakerOpenError, Exception) as shield_err:
-                            print(f"\n{YELLOW}{BOLD}[SHIELD RESPONSE (Isolated Enclave Stub)]:{RESET}")
-                            print(f"  Request processed securely in air-gapped environment (Local GPU offline: {shield_err}).")
-                            print(f"  {GREEN}FAIL-CLOSED GUARANTEED: 0 requests leaked to cloud.{RESET}\n")
+                            print(f"\n{RED}{BOLD}[SHIELD UNAVAILABLE]:{RESET}")
+                            print(f"  Local GPU/Inference backend is offline ({shield_err}).")
+                            print("  Request was NOT processed.")
+                            print(f"  {GREEN}{BOLD}FAIL-CLOSED ENFORCED: 0 requests were sent to the cloud.{RESET}\n")
 
                 else:
                     print(f"  * Security Action:  {GREEN}[NORMAL] Forwarding to Cloud Backend ({settings.normal_backend_model}){RESET}")
