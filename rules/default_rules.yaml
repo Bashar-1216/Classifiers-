@@ -118,3 +118,13 @@ rules:
       - "(?i)(?:subprocess\\.run|subprocess\\.Popen|os\\.system|exec\\s*\\(|eval\\s*\\(|shutil\\.rmtree|pty\\.spawn)"
       - "(?i)(?:powershell(?:\\.exe)?\\s+-enc|cmd\\.exe\\s+/c|/bin/sh|/bin/bash)"
       - "(?i)rm\\s+-rf\\s+/"
+
+  # --- Deterministic: Explicit Cyber Attacks & Target Hacking ---
+  - name: cyber_attack_targets
+    type: regex
+    severity: high
+    description: "Detects explicit requests to hack, breach, or compromise companies, servers, or systems"
+    patterns:
+      - "(?i)(?:اريد|أريد|كيف|طريقة|ساعدني\\s+في|علمني\\s+كيف)\\s+(?:اختراق|تهكير|سرقة|تخريب)"
+      - "(?i)\\b(?:اختراق|تهكير)\\s+(?:شركة|شركات|موقع|مواقع|سيرفر|سيرفرات|خادم|خوادم|نظام|أنظمة|حساب|حسابات|شبكة|شبكات|بنك|بنوك|مؤسسة|مؤسسات|قاعدة\\s+بيانات)"
+      - "(?i)\\b(?:hack|breach|infiltrate|penetrate)\\s+(?:into\\s+)?(?:a\\s+|the\\s+)?(?:company|corporation|bank|server|database|network|account|target|infrastructure)"

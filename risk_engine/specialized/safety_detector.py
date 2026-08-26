@@ -43,10 +43,12 @@ class SafetyDetector:
         r'|\b(?:وثائق\s+مزورة|جوازات\s+(?:مزورة|غير\s+قانونية)|أموال\s+مزيفة|صناعة\s+(?:مخدرات|أسلحة|متفجرات|قنبلة))\b'
     )
 
-    # Cyber Abuse / Malware / Web Exploits
+    # Cyber Abuse / Malware / Web Exploits & Target Hacking
     CYBER_ABUSE_PATTERN = re.compile(
-        r'(?i)\b(?:write\s+(?:malware|ransomware|virus|trojan)|steal\s+(?:passwords?|credentials?)|exploit\s+(?:script|code|vulnerability)|hack\s+into|penetrate\s+system)\b'
-        r'|\b(?:برنامج\s+خبيث|فيروس|برمجيات\s+فدية|يسرق\s+كلمات\s+المرور|استغلال\s+ثغرة|اختراق\s+(?:موقع|سيرفر|نظام|مواقع|سيرفرات)|طرق\s+اختراق|باختراقه)\b'
+        r'(?i)\b(?:write\s+(?:malware|ransomware|virus|trojan)|steal\s+(?:passwords?|credentials?)|exploit\s+(?:script|code|vulnerability)|hack\s+(?:into|a|the)?|penetrate\s+system|ddos\s+attack)\b'
+        r'|\b(?:برنامج\s+خبيث|فيروس|برمجيات\s+فدية|يسرق\s+كلمات\s+المرور|استغلال\s+ثغرة|طرق\s+اختراق|باختراقه|تهكير)\b'
+        r'|\b(?:اختراق|تهكير)\s+(?:شركة|شركات|موقع|مواقع|سيرفر|سيرفرات|خادم|خوادم|نظام|أنظمة|حساب|حسابات|شبكة|شبكات|بنك|بنوك|مؤسسة|مؤسسات|قاعدة\s+بيانات)\b'
+        r'|\b(?:اريد|أريد|كيف|طريقة|ساعدني\s+في|علمني\s+كيف)\s+(?:اختراق|تهكير|سرقة\s+بيانات)\b'
     )
 
     # Social Engineering
