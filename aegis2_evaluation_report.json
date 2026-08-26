@@ -1,0 +1,220 @@
+{
+  "dataset": "aegis2.jsonl",
+  "total_samples": 33414,
+  "evaluation_time_seconds": 143.73,
+  "throughput_samples_per_sec": 232.47,
+  "overall_metrics": {
+    "total_samples": 33414,
+    "tp": 4701,
+    "tn": 10442,
+    "fp": 3329,
+    "fn": 14942,
+    "errors": 0,
+    "expected_restricted": 19643,
+    "expected_normal": 13771,
+    "accuracy": 0.4532,
+    "precision": 0.5854,
+    "recall": 0.2393,
+    "f1_score": 0.3398,
+    "false_positive_rate": 0.2417,
+    "false_negative_rate": 0.7607,
+    "avg_latency_ms": 29.45
+  },
+  "split_metrics": {
+    "test": {
+      "total_samples": 1964,
+      "tp": 246,
+      "tn": 714,
+      "fp": 191,
+      "fn": 813,
+      "errors": 0,
+      "expected_restricted": 1059,
+      "expected_normal": 905,
+      "accuracy": 0.4888,
+      "precision": 0.5629,
+      "recall": 0.2323,
+      "f1_score": 0.3289,
+      "false_positive_rate": 0.211,
+      "false_negative_rate": 0.7677,
+      "avg_latency_ms": 24.89
+    },
+    "train": {
+      "total_samples": 30006,
+      "tp": 4272,
+      "tn": 9295,
+      "fp": 3000,
+      "fn": 13439,
+      "errors": 0,
+      "expected_restricted": 17711,
+      "expected_normal": 12295,
+      "accuracy": 0.4521,
+      "precision": 0.5875,
+      "recall": 0.2412,
+      "f1_score": 0.342,
+      "false_positive_rate": 0.244,
+      "false_negative_rate": 0.7588,
+      "avg_latency_ms": 29.78
+    },
+    "validation": {
+      "total_samples": 1444,
+      "tp": 183,
+      "tn": 433,
+      "fp": 138,
+      "fn": 690,
+      "errors": 0,
+      "expected_restricted": 873,
+      "expected_normal": 571,
+      "accuracy": 0.4266,
+      "precision": 0.5701,
+      "recall": 0.2096,
+      "f1_score": 0.3065,
+      "false_positive_rate": 0.2417,
+      "false_negative_rate": 0.7904,
+      "avg_latency_ms": 28.76
+    }
+  },
+  "category_breakdown": {
+    "Criminal Planning/Confessions": {
+      "total_unsafe_samples": 8557,
+      "detected_restricted": 2310,
+      "recall": 0.27
+    },
+    "Violence": {
+      "total_unsafe_samples": 3316,
+      "detected_restricted": 792,
+      "recall": 0.2388
+    },
+    "Hate/Identity Hate": {
+      "total_unsafe_samples": 3246,
+      "detected_restricted": 434,
+      "recall": 0.1337
+    },
+    "Harassment": {
+      "total_unsafe_samples": 2995,
+      "detected_restricted": 653,
+      "recall": 0.218
+    },
+    "Profanity": {
+      "total_unsafe_samples": 2283,
+      "detected_restricted": 409,
+      "recall": 0.1792
+    },
+    "Sexual": {
+      "total_unsafe_samples": 1929,
+      "detected_restricted": 360,
+      "recall": 0.1866
+    },
+    "Controlled/Regulated Substances": {
+      "total_unsafe_samples": 1864,
+      "detected_restricted": 421,
+      "recall": 0.2259
+    },
+    "PII/Privacy": {
+      "total_unsafe_samples": 1768,
+      "detected_restricted": 496,
+      "recall": 0.2805
+    },
+    "Needs Caution": {
+      "total_unsafe_samples": 1534,
+      "detected_restricted": 307,
+      "recall": 0.2001
+    },
+    "Guns and Illegal Weapons": {
+      "total_unsafe_samples": 1242,
+      "detected_restricted": 278,
+      "recall": 0.2238
+    },
+    "Suicide and Self Harm": {
+      "total_unsafe_samples": 977,
+      "detected_restricted": 105,
+      "recall": 0.1075
+    },
+    "Unauthorized Advice": {
+      "total_unsafe_samples": 515,
+      "detected_restricted": 329,
+      "recall": 0.6388
+    },
+    "Political/Misinformation/Conspiracy": {
+      "total_unsafe_samples": 488,
+      "detected_restricted": 162,
+      "recall": 0.332
+    },
+    "Fraud/Deception": {
+      "total_unsafe_samples": 455,
+      "detected_restricted": 173,
+      "recall": 0.3802
+    },
+    "Other": {
+      "total_unsafe_samples": 339,
+      "detected_restricted": 126,
+      "recall": 0.3717
+    },
+    "Sexual (minor)": {
+      "total_unsafe_samples": 303,
+      "detected_restricted": 39,
+      "recall": 0.1287
+    },
+    "Immoral/Unethical": {
+      "total_unsafe_samples": 288,
+      "detected_restricted": 206,
+      "recall": 0.7153
+    },
+    "Illegal Activity": {
+      "total_unsafe_samples": 236,
+      "detected_restricted": 167,
+      "recall": 0.7076
+    },
+    "Threat": {
+      "total_unsafe_samples": 228,
+      "detected_restricted": 69,
+      "recall": 0.3026
+    },
+    "Malware": {
+      "total_unsafe_samples": 178,
+      "detected_restricted": 112,
+      "recall": 0.6292
+    },
+    "Copyright/Trademark/Plagiarism": {
+      "total_unsafe_samples": 95,
+      "detected_restricted": 42,
+      "recall": 0.4421
+    },
+    "High Risk Gov Decision Making": {
+      "total_unsafe_samples": 94,
+      "detected_restricted": 22,
+      "recall": 0.234
+    },
+    "Manipulation": {
+      "total_unsafe_samples": 7,
+      "detected_restricted": 5,
+      "recall": 0.7143
+    }
+  },
+  "top_triggers": {
+    "jailbreak_injection": 2099,
+    "harmful_violence_illegal_intent": 1840,
+    "lexical_bm25_threat": 1701,
+    "security_adversarial_framing": 787,
+    "system_prompt_extraction_action_target": 729,
+    "instruction_override_action_target": 599,
+    "security_jailbreak_override": 529,
+    "privacy_credential_leak_intent": 399,
+    "correlation_sensitive_extraction_convergence": 357,
+    "security_system_prompt_extraction": 231,
+    "structure_keyword_density": 220,
+    "hate_discrimination_intent": 179,
+    "safety_cyber_abuse": 158,
+    "structure_keyword_density [full_leetspeak_normalized]": 157,
+    "lexical_bm25_threat [full_leetspeak_normalized]": 146,
+    "structure_keyword_density [punctuated_words_normalized]": 139,
+    "security_jailbreak_override [full_leetspeak_normalized]": 134,
+    "security_jailbreak_override [punctuated_words_normalized]": 117,
+    "defenseclaw_high_entropy_obfuscation": 102,
+    "lexical_bm25_threat [punctuated_words_normalized]": 96,
+    "safety_illegal": 86,
+    "structure_adversarial_sequence": 76,
+    "social_engineering_intent": 75,
+    "security_system_prompt_extraction [homoglyph_normalized]": 70,
+    "security_system_prompt_extraction [full_leetspeak_normalized]": 64
+  }
+}

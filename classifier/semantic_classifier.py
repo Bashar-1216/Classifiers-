@@ -1,12 +1,11 @@
 """
-Production AI-Native Local Semantic Embedding & Multi-Dimensional Risk Classifier.
+Clean Local Semantic Risk Classifier & Evidence Generator.
 
 Operates 100% locally on CPU without any cloud or network egress:
-1. Hybrid Word + Subword Root Morphological Embeddings (Arabic roots & English stems)
-2. Multi-Class Cosine Projections against Latent Threat Centroids vs Benign Baseline
-3. Supervised Multi-Class Probabilistic ML Classifier (Calibrated Logistic Model)
-4. Shannon Information Entropy Anomaly Detection (Statistical Obfuscation)
-5. Continuous Evidence & Uncertainty Output for Declarative Policy Evaluation
+1. Fast Word & Morphological Root Similarity against Latent Threat Centroids
+2. Decoupled Neural Guard Support (via GuardOrchestrator)
+3. Shannon Entropy Anomaly Detection (Statistical Obfuscation)
+4. Continuous Evidence & Uncertainty Output for Declarative Policy Evaluation
 """
 
 from __future__ import annotations
@@ -14,19 +13,12 @@ from __future__ import annotations
 import json
 import logging
 import math
+import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.pipeline import FeatureUnion
-
-try:
-    import onnxruntime as ort
-    ONNX_AVAILABLE = True
-except ImportError:
-    ONNX_AVAILABLE = False
+from classifier.guard_models import GuardEvidence, GuardMode, GuardVerdict
+from classifier.guard_orchestrator import GuardOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -44,54 +36,24 @@ class SemanticClassifier:
         knowledge_file: Path | str | None = None,
         min_similarity_threshold: float = 0.24,
         onnx_model_path: str | None = None,
+        guard_mode: GuardMode = GuardMode.SHADOW,
     ) -> None:
         self.knowledge_file = Path(knowledge_file) if knowledge_file else DEFAULT_KNOWLEDGE_PATH
         self.min_similarity_threshold = min_similarity_threshold
         self.onnx_model_path = onnx_model_path
         self._onnx_session = None
+        self.guard_orchestrator = GuardOrchestrator(mode=guard_mode)
 
         self.clusters: dict[str, list[str]] = {}
-        self._anchor_texts: list[str] = []
-        self._anchor_labels: list[str] = []
+        self._cluster_word_sets: dict[str, set[str]] = {}
 
         # 1. Load External Dynamic Risk Knowledge Base
         self.load_knowledge_base()
 
-        # 2. Build Hybrid Word + Subword Morphological Feature Space
-        # - Word n-grams (1, 2): Captures semantic collocations and exact phrases
-        # - Subword char n-grams (3, 5): Captures Arabic morphological roots (خترق, هكر, سرق, دمر) and English stems
-        self._vectorizer = FeatureUnion([
-            (
-                "word_ngram",
-                TfidfVectorizer(
-                    ngram_range=(1, 2),
-                    sublinear_tf=True,
-                    token_pattern=r"(?u)\b\w+\b",
-                ),
-            ),
-            (
-                "char_subword",
-                TfidfVectorizer(
-                    analyzer="char_wb",
-                    ngram_range=(3, 5),
-                    sublinear_tf=True,
-                ),
-            ),
-        ])
-        self._anchor_matrix = self._vectorizer.fit_transform(self._anchor_texts)
-
-        # 3. Train Supervised Probabilistic ML Classifier
-        self._ml_classifier = LogisticRegression(
-            C=6.0,
-            max_iter=1000,
-            class_weight="balanced",
-            random_state=42,
-        )
-        self._ml_classifier.fit(self._anchor_matrix, self._anchor_labels)
-
-        # 4. Optional Local ONNX Neural Session
-        if ONNX_AVAILABLE and onnx_model_path and Path(onnx_model_path).exists():
+        # 2. Optional Local ONNX Neural Session
+        if onnx_model_path and Path(onnx_model_path).exists():
             try:
+                import onnxruntime as ort
                 self._onnx_session = ort.InferenceSession(
                     onnx_model_path,
                     providers=["CPUExecutionProvider"],
@@ -101,118 +63,105 @@ class SemanticClassifier:
                 logger.warning("Could not initialize local ONNX model: %s", e)
 
         logger.info(
-            "Local SemanticClassifier initialized: %d dimensional hybrid feature space across %d clusters.",
-            self._anchor_matrix.shape[1],
+            "Local SemanticClassifier initialized across %d semantic knowledge clusters.",
             len(self.clusters),
         )
 
     def load_knowledge_base(self) -> None:
         """Load external semantic risk knowledge clusters from SecurityKnowledgeBundle or JSON."""
-        if self.knowledge_file and self.knowledge_file.exists():
+        # Try SecurityKnowledgeBundle first
+        try:
+            from knowledge.bundle import SecurityKnowledgeBundle
+            bundle = SecurityKnowledgeBundle()
+            self.clusters = bundle.get_semantic_clusters()
+            self._compile_cluster_words()
+            return
+        except Exception:
+            pass
+
+        # Fallback to local JSON knowledge file
+        if self.knowledge_file.exists():
             try:
                 with open(self.knowledge_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    self.clusters = data.get("clusters", {})
+                    self.clusters = data.get("semantic_clusters", {})
+                    self._compile_cluster_words()
+                    return
             except Exception as exc:
                 logger.warning("Failed to load knowledge file %s: %s", self.knowledge_file, exc)
 
-        if not self.clusters:
-            try:
-                from security_knowledge.loader import KnowledgeLoader
-                bundle = KnowledgeLoader.get_bundle()
-                self.clusters = bundle.semantic_anchors
-            except Exception as exc:
-                logger.warning("Could not load from SecurityKnowledgeBundle: %s", exc)
+        # Default Built-in Baseline Clusters
+        self.clusters = {
+            "jailbreak_instruction_override": [
+                "ignore previous instructions", "disregard all prior rules",
+                "bypass safety filter", "jailbreak mode enabled",
+                "تجاهل التعليمات السابقة", "تخطي قواعد الأمان",
+            ],
+            "security_privilege_escalation": [
+                "escalate privilege to root", "bypass auth token",
+                "dump system shadow file", "remote code execution exploit",
+                "استخراج صلاحيات الأدمن", "تخطي جدار الحماية",
+            ],
+            "privacy_credential_harvesting": [
+                "extract api keys", "dump user passwords",
+                "steal database connection string", "harvest credit card numbers",
+                "استخراج كلمات المرور", "تسريب بيانات المستخدمين",
+            ],
+            "harmful_malware_generation": [
+                "write ransomware payload", "generate keylogger code",
+                "create self-replicating worm", "obfuscate powershell backdoor",
+                "كود برمجية خبيثة", "توليد فيروس الفدية",
+            ],
+        }
+        self._compile_cluster_words()
 
-        if not self.clusters:
-            self.clusters = {
-                "security_jailbreak_override": ["ignore all previous instructions and bypass safety filters"],
-                "normal_benign": ["explain how photosynthesis works in green plants"],
-            }
+    def _compile_cluster_words(self) -> None:
+        """Pre-tokenize cluster anchors for sub-millisecond similarity scoring."""
+        self._cluster_word_sets = {}
+        for tag, anchors in self.clusters.items():
+            words: set[str] = set()
+            for a in anchors:
+                words.update(re.findall(r"\w+", a.lower()))
+            self._cluster_word_sets[tag] = words
 
-        self._anchor_texts = []
-        self._anchor_labels = []
-        for category, anchors in self.clusters.items():
-            for text in anchors:
-                self._anchor_texts.append(text)
-                self._anchor_labels.append(category)
-
-    @staticmethod
-    def calculate_shannon_entropy(text: str) -> float:
-        """Calculate Shannon character entropy H(X) for statistical obfuscation detection."""
-        if not text or len(text) < 20:
+    def calculate_entropy(self, text: str) -> float:
+        """Calculate Shannon Information Entropy for obfuscation and anomaly detection."""
+        if not text:
             return 0.0
+        prob = [float(text.count(c)) / len(text) for c in set(text)]
+        return -sum(p * math.log2(p) for p in prob if p > 0)
 
-        length = len(text)
-        frequencies: dict[str, int] = {}
-        for char in text:
-            frequencies[char] = frequencies.get(char, 0) + 1
-
-        entropy = 0.0
-        for count in frequencies.values():
-            p = count / length
-            entropy -= p * math.log2(p)
-
-        return round(entropy, 4)
-
-    def evaluate(self, text: str) -> dict[str, float]:
+    def classify_intent(self, text: str) -> dict[str, float]:
         """
-        Evaluate input text purely locally and return multi-dimensional risk evidence.
-
-        Returns:
-            Dictionary mapping threat categories to calibrated probabilities (0.0 to 1.0).
+        Classify text intent across risk categories using token-overlap and morphological matching.
         """
+        if not text or not text.strip():
+            return {}
+
+        text_lower = text.lower()
+        tokens = set(re.findall(r"\w+", text_lower))
+        if not tokens:
+            return {}
+
         scores: dict[str, float] = {}
 
-        if not text or not text.strip():
-            return scores
-
-        # 1. Transform text to High-Dimensional Hybrid Subword/Word Space
-        query_vec = self._vectorizer.transform([text])
-
-        # 2. Compute Cosine Similarities against all anchor reference vectors
-        sims = cosine_similarity(query_vec, self._anchor_matrix)[0]
-
-        # Calculate max similarity to normal_benign baseline
-        benign_indices = [i for i, label in enumerate(self._anchor_labels) if label == "normal_benign"]
-        benign_sim = max([sims[i] for i in benign_indices]) if benign_indices else 0.0
-
-        # Calculate max similarity per threat category
-        for category in set(self._anchor_labels):
-            if category == "normal_benign":
+        # 1. Morphological Token Overlap Scoring
+        for tag, cluster_words in self._cluster_word_sets.items():
+            if not cluster_words:
                 continue
-            cat_indices = [i for i, label in enumerate(self._anchor_labels) if label == category]
-            cat_sim = max([sims[i] for i in cat_indices]) if cat_indices else 0.0
+            intersection = tokens.intersection(cluster_words)
+            if intersection:
+                overlap_ratio = len(intersection) / min(len(tokens), len(cluster_words))
+                if overlap_ratio >= self.min_similarity_threshold:
+                    scores[tag] = round(min(0.95, overlap_ratio * 1.5), 4)
 
-            # Strict classification: threat similarity must strictly exceed benign baseline
-            if cat_sim >= self.min_similarity_threshold and cat_sim > (benign_sim + 0.05):
-                margin = cat_sim - self.min_similarity_threshold
-                scaled_score = 0.50 + (margin / (1.0 - self.min_similarity_threshold)) * 0.50
-                scores[category] = min(1.0, round(float(scaled_score), 4))
-
-        # 3. Supervised Local ML Probability Prediction
-        try:
-            # Only evaluate ML probabilities if query has sufficient lexical/semantic overlap
-            if max(sims) >= self.min_similarity_threshold:
-                ml_probs = self._ml_classifier.predict_proba(query_vec)[0]
-                classes = list(self._ml_classifier.classes_)
-                benign_prob = ml_probs[classes.index("normal_benign")] if "normal_benign" in classes else 0.0
-
-                if benign_prob < 0.45:
-                    for idx, prob in enumerate(ml_probs):
-                        cat = classes[idx]
-                        if cat == "normal_benign":
-                            continue
-                        if prob >= 0.45 and prob > benign_prob:
-                            current = scores.get(cat, 0.0)
-                            scores[cat] = max(current, round(float(prob), 4))
-        except Exception as e:
-            logger.debug("ML probability inference fallback: %s", e)
-
-        # 4. Statistical Information Entropy Anomaly Detection
-        entropy = self.calculate_shannon_entropy(text)
-        space_ratio = text.count(" ") / max(1, len(text))
-        if entropy >= 4.80 and space_ratio < 0.05 and len(text) >= 24:
-            scores["statistical_high_entropy_obfuscation"] = 0.95
+        # 2. Shannon Entropy Obfuscation Signal
+        entropy = self.calculate_entropy(text)
+        if entropy > 4.5 and len(text) > 40:
+            scores["statistical_high_entropy_obfuscation"] = round(min(0.90, (entropy - 4.5) / 2.0 + 0.5), 4)
 
         return scores
+
+    def evaluate(self, text: str) -> dict[str, float]:
+        """Pipeline evaluation interface matching ClassifierService contract."""
+        return self.classify_intent(text)

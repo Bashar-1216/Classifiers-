@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-08-26 21:12:26",
+  "arabic_evaluation": {
+    "total_samples": 10,
+    "accuracy_percent": 60.0,
+    "avg_latency_ms": 18.92
+  },
+  "deterministic_coverage": {
+    "total_unsafe_test": 1059,
+    "rule_matches": 17,
+    "security_detectors": 113
+  },
+  "latency_profile_ms": {
+    "sample_size": 500,
+    "mean": 9.22,
+    "p50": 7.5,
+    "p90": 12.27,
+    "p95": 15.04,
+    "p99": 60.08,
+    "min": 3.59,
+    "max": 178.75
+  }
+}

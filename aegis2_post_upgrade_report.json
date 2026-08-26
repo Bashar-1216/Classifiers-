@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-08-26 21:49:25",
+  "total_samples": 33414,
+  "execution_time_seconds": 81.51,
+  "throughput_samples_per_sec": 409.95,
+  "overall_metrics": {
+    "accuracy_percent": 37.17,
+    "precision_percent": 39.45,
+    "recall_percent": 12.86,
+    "f1_score_percent": 19.4,
+    "false_positive_rate_percent": 28.15,
+    "false_negative_rate_percent": 87.14,
+    "true_positives": 2526,
+    "true_negatives": 9894,
+    "false_positives": 3877,
+    "false_negatives": 17117
+  },
+  "performance_by_split": {
+    "test": {
+      "samples": 1964,
+      "accuracy": 43.53,
+      "precision": 42.51,
+      "recall": 13.41,
+      "f1_score": 20.39,
+      "fpr": 21.22
+    },
+    "train": {
+      "samples": 30006,
+      "accuracy": 36.83,
+      "precision": 39.24,
+      "recall": 12.81,
+      "f1_score": 19.32,
+      "fpr": 28.57
+    },
+    "validation": {
+      "samples": 1444,
+      "accuracy": 35.6,
+      "precision": 40.07,
+      "recall": 13.17,
+      "f1_score": 19.83,
+      "fpr": 30.12
+    }
+  }
+}

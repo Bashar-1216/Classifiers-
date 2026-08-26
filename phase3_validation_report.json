@@ -1,0 +1,59 @@
+{
+  "dataset": "aegis2.jsonl",
+  "split": "validation",
+  "total_samples": 1444,
+  "configurations": {
+    "baseline": {
+      "total": 1444,
+      "tp": 183,
+      "tn": 433,
+      "fp": 138,
+      "fn": 690,
+      "accuracy": 42.66,
+      "precision": 57.01,
+      "recall": 20.96,
+      "f1_score": 30.65,
+      "fpr": 24.17,
+      "fnr": 79.04
+    },
+    "guard_solo": {
+      "total": 1444,
+      "tp": 557,
+      "tn": 488,
+      "fp": 83,
+      "fn": 316,
+      "accuracy": 72.37,
+      "precision": 87.03,
+      "recall": 63.8,
+      "f1_score": 73.63,
+      "fpr": 14.54,
+      "fnr": 36.2
+    },
+    "hybrid_candidate_rules_dlp_guard": {
+      "total": 1444,
+      "tp": 560,
+      "tn": 459,
+      "fp": 112,
+      "fn": 313,
+      "accuracy": 70.57,
+      "precision": 83.33,
+      "recall": 64.15,
+      "f1_score": 72.49,
+      "fpr": 19.61,
+      "fnr": 35.85
+    },
+    "legacy_ensemble_with_tfidf": {
+      "total": 1444,
+      "tp": 616,
+      "tn": 372,
+      "fp": 199,
+      "fn": 257,
+      "accuracy": 68.42,
+      "precision": 75.58,
+      "recall": 70.56,
+      "f1_score": 72.99,
+      "fpr": 34.85,
+      "fnr": 29.44
+    }
+  }
+}

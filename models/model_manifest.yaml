@@ -1,0 +1,50 @@
+# AI Risk Assessment Gateway — Model Registry & Taxonomy Manifest
+version: "1.0"
+manifest_id: "guard-manifest-v1"
+last_updated: "2026-08-26"
+
+models:
+  primary_guard:
+    model_id: "meta-llama/Llama-Guard-3-1B"
+    architecture: "LlamaForCausalLM"
+    parameters: "1B"
+    dtype: "float16"
+    recommended_runtime: "transformers / vLLM / llama.cpp"
+    license: "Llama 3.1 Community License"
+    revision: "main"
+    sha256: "pinned-at-deployment"
+    max_context_length: 1024
+    expected_output_format: "Llama-Guard-3-Verdict"
+
+taxonomy_mapping:
+  # Llama Guard 3 Standard Taxonomy -> Canonical Gateway Taxonomy
+  S1: "violent_crimes"
+  S2: "non_violent_crimes"
+  S3: "sex_related_crimes"
+  S4: "child_sexual_exploitation"
+  S5: "defamation"
+  S6: "specialized_advice"
+  S7: "privacy_pii"
+  S8: "intellectual_property"
+  S9: "indiscriminate_weapons"
+  S10: "hate_speech"
+  S11: "suicide_self_harm"
+  S12: "sexual_content"
+  S13: "elections_misinformation"
+  S14: "code_interpreter_abuse"
+
+policy_actions:
+  S1: "SHIELD"
+  S2: "SHIELD"
+  S3: "SHIELD"
+  S4: "SHIELD"
+  S5: "SHIELD"
+  S6: "SHIELD"
+  S7: "SHIELD"
+  S8: "SHIELD"
+  S9: "SHIELD"
+  S10: "SHIELD"
+  S11: "SHIELD"
+  S12: "SHIELD"
+  S13: "SHIELD"
+  S14: "SHIELD"

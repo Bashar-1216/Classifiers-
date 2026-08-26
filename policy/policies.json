@@ -1,15 +1,29 @@
 {
-  "version": "2.0",
+  "version": "2.1",
   "policy_name": "Comprehensive Enterprise AI Red Team Governance Policy",
-  "description": "Evaluated dynamically by Policy Decision Engine across all 25 Red Team threat dimensions.",
+  "description": "Evaluated dynamically by Policy Decision Engine across deterministic rules and Neural Guard evidence.",
   "default_route": "NORMAL",
-  "default_risk_threshold": 0.50,
+  "default_risk_threshold": 0.5,
   "rules": [
+    {
+      "id": "POL-GUARD-001",
+      "name": "Neural Guard Semantic Threat Isolation",
+      "guard_verdict": "UNSAFE",
+      "action": "SHIELD",
+      "description": "Routes semantically hazardous requests identified by Neural Guard to local air-gapped Shield."
+    },
+    {
+      "id": "POL-GUARD-002",
+      "name": "Neural Guard Fail-Closed Safety Route",
+      "guard_verdict": "UNAVAILABLE",
+      "action": "SHIELD",
+      "description": "Fails closed to local Shield when Neural Guard service is unreachable or timed out."
+    },
     {
       "id": "POL-001",
       "name": "Security & Jailbreak Air-Gap",
       "category": "security",
-      "min_score": 0.50,
+      "min_score": 0.5,
       "action": "SHIELD",
       "description": "Isolates prompt injections, jailbreaks, system prompt extractions, and adversarial framing."
     },
@@ -17,7 +31,7 @@
       "id": "POL-002",
       "name": "Harmful, Malware & Cyber Abuse Air-Gap",
       "category": "harmful",
-      "min_score": 0.50,
+      "min_score": 0.5,
       "action": "SHIELD",
       "description": "Prevents cloud leakage of malware generation, violence, and illegal activity requests."
     },
@@ -41,9 +55,13 @@
       "id": "POL-005",
       "name": "Medical Records Privacy Protection",
       "category": "medical",
-      "min_score": 0.50,
+      "min_score": 0.5,
       "metadata_field": "user_role",
-      "exclude_values": ["doctor", "licensed_physician", "chief_medical_officer"],
+      "exclude_values": [
+        "doctor",
+        "licensed_physician",
+        "chief_medical_officer"
+      ],
       "action": "SHIELD",
       "description": "Enforces HIPAA compliance by restricting patient dossier processing to verified physicians."
     },
@@ -51,7 +69,7 @@
       "id": "POL-006",
       "name": "Credential & Sensitive PII Leak Protection",
       "category": "privacy",
-      "min_score": 0.50,
+      "min_score": 0.5,
       "action": "SHIELD",
       "description": "Prevents cloud leakage of passwords, employee records, SSNs, and API keys."
     },
@@ -67,7 +85,12 @@
       "id": "POL-008",
       "name": "Strictly Confidential Project Classification",
       "metadata_field": "project_sensitivity",
-      "match_values": ["strictly_confidential", "top_secret", "m_and_a", "financial_unreleased"],
+      "match_values": [
+        "strictly_confidential",
+        "top_secret",
+        "m_and_a",
+        "financial_unreleased"
+      ],
       "action": "SHIELD",
       "description": "Guarantees zero cloud egress for requests tagged with high data sensitivity."
     },
@@ -75,15 +98,19 @@
       "id": "POL-009",
       "name": "Untrusted Guest Lower-Threshold Policy",
       "metadata_field": "user_role",
-      "match_values": ["guest", "external_untrusted", "anonymous"],
-      "min_overall_risk": 0.30,
+      "match_values": [
+        "guest",
+        "external_untrusted",
+        "anonymous"
+      ],
+      "min_overall_risk": 0.3,
       "action": "SHIELD",
       "description": "Applies a stricter 0.30 threshold to external or unauthenticated guests."
     },
     {
       "id": "POL-010",
       "name": "Overall Risk Score Threshold",
-      "min_overall_risk": 0.50,
+      "min_overall_risk": 0.5,
       "action": "SHIELD",
       "description": "Standard fallback threshold for general risk scores exceeding 0.50."
     }
