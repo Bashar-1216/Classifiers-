@@ -166,9 +166,9 @@ def test_adjudicator_active_privilege_escalation_attack():
         uncertainty=0.0,
         reasons=["cyber_attack_targets"],
     )
-    # No conflict (uncertainty=0.0, semantic=0.95), so no adjudication suppression
-    assert adjudicated is False
+    # No benign exclusion matched, so risk score and reasons remain unsuppressed
     assert score == 0.95
+    assert reasons == ["cyber_attack_targets"]
 
 
 def test_adjudicator_quoted_jailbreak():

@@ -604,10 +604,10 @@
       "risk_score": 0.9978,
       "reasons": [
         "urgent_credential_phishing",
-        "privacy_credential_leak_intent",
         "social_engineering_intent",
-        "privacy_credential_leak_intent [arabic_normalized]",
-        "social_engineering_intent [arabic_normalized]"
+        "privacy_credential_leak_intent",
+        "social_engineering_intent [arabic_normalized]",
+        "privacy_credential_leak_intent [arabic_normalized]"
       ],
       "matched_rules": [
         "urgent_credential_phishing"
@@ -1429,12 +1429,12 @@
       "risk_score": 0.9989,
       "reasons": [
         "urgent_credential_phishing",
-        "harmful_violence_illegal_intent",
-        "privacy_credential_leak_intent",
         "social_engineering_intent",
-        "harmful_violence_illegal_intent [arabic_normalized]",
+        "privacy_credential_leak_intent",
+        "harmful_violence_illegal_intent",
+        "social_engineering_intent [arabic_normalized]",
         "privacy_credential_leak_intent [arabic_normalized]",
-        "social_engineering_intent [arabic_normalized]"
+        "harmful_violence_illegal_intent [arabic_normalized]"
       ],
       "matched_rules": [
         "urgent_credential_phishing"
