@@ -2,7 +2,7 @@
 Configuration Settings for AI Risk Assessment & Governance System.
 
 Loads settings from environment variables or .env file without any web framework coupling.
-Supports Groq Cloud API, OpenAI, and Google Gemini out of the box.
+Configured natively for Groq Cloud API.
 """
 
 from __future__ import annotations
@@ -14,20 +14,20 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """System configuration."""
 
-    # --- Normal / Cloud Backend (Groq / OpenAI / Gemini) ---
+    # --- Normal / Cloud Backend (Groq Cloud API) ---
     normal_backend_url: str = Field(
         default="https://api.groq.com/openai/v1",
-        description="URL of the normal AI cloud backend (Groq OpenAI-compatible or Gemini API)",
+        description="URL of the normal AI cloud backend (Groq Cloud API)",
         alias="NORMAL_BACKEND_URL",
     )
     normal_backend_api_key: str = Field(
         default="",
-        description="API key for normal cloud backend (e.g. Groq API Key gsk_...)",
+        description="API key for Groq cloud backend (e.g. gsk_...)",
         alias="NORMAL_BACKEND_API_KEY",
     )
     normal_backend_model: str = Field(
-        default="llama-3.3-70b-versatile",
-        description="Model name for cloud inference (e.g. llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768)",
+        default="openai/gpt-oss-120b",
+        description="Model name for Groq inference (e.g. openai/gpt-oss-120b, qwen/qwen3.8-27b, allam-2-7b)",
         alias="NORMAL_BACKEND_MODEL",
     )
     normal_backend_timeout: int = Field(
