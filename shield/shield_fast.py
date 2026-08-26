@@ -4,12 +4,15 @@ SofaShieldFast — Internal Secure Inference Gateway.
 Acts as the internal secure gateway between the Shield service and local LLM instances.
 Manages circuit breaker resilience, input validation, and secure non-cloud inference.
 Operates strictly within an isolated network without external fallbacks.
+Enforces Application-Level Air-Gap Guard when shield_mode is 'local_isolated'.
 """
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import time
+import urllib.parse
 from typing import Any
 
 import httpx
@@ -36,13 +39,20 @@ class ShieldBackendError(ShieldInferenceError):
     """Raised when the local LLM backend encounters an error or is unreachable."""
 
 
+class ShieldIsolationViolationError(ShieldInferenceError):
+    """Raised when an illegal external/cloud URL is configured in isolated mode."""
+
+
 class SofaShieldFast:
     """
     Internal Secure Inference Gateway.
 
     Wraps the local LLM inference endpoint with circuit breaker protection,
-    request size validation, and metadata-only audit logging.
+    request size validation, application-level air-gap isolation guards,
+    and metadata-only audit logging.
     """
+
+    ALLOWED_LOCAL_HOSTNAMES = {"localhost", "127.0.0.1", "::1", "local_llm", "shield_fast", "host.docker.internal"}
 
     def __init__(self, config: ShieldConfig | None = None) -> None:
         """
@@ -52,18 +62,66 @@ class SofaShieldFast:
             config: Shield service configuration (optional, defaults to standard ShieldConfig).
         """
         self.config = config or ShieldConfig()
+
+        # Enforce Application-Level Air-Gap Guard if running in isolated mode
+        if self.config.shield_mode == "local_isolated":
+            self._validate_isolation_guard(self.config.local_llm_url)
+
         self.state: CircuitState = CircuitState.CLOSED
         self.failure_count: int = 0
         self.last_failure_time: float | None = None
+
+        # Build HTTP client with air-gap hardening:
+        # - trust_env=False: Prevents proxy escape via HTTP_PROXY/HTTPS_PROXY env variables
+        # - follow_redirects=False: Prevents 302 redirect escapes to external cloud hosts
         self.client: httpx.AsyncClient = httpx.AsyncClient(
+            trust_env=False,
+            follow_redirects=False,
             timeout=httpx.Timeout(float(self.config.request_timeout)),
             limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
         )
         logger.info(
-            "SofaShieldFast gateway initialized with local backend URL: %s, model: %s",
+            "SofaShieldFast gateway initialized in [%s] mode with local backend URL: %s, model: %s",
+            self.config.shield_mode,
             self.config.local_llm_url,
             self.config.local_llm_model,
         )
+
+    @classmethod
+    def _validate_isolation_guard(cls, url: str) -> None:
+        """
+        Verify that the configured backend URL points strictly to loopback or private network.
+        Rejects public cloud hostnames, public IP addresses, and invalid schemes.
+        """
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(f"Air-Gap Guard: Invalid scheme '{parsed.scheme}'. Must be http or https.")
+
+        hostname = parsed.hostname or ""
+        if not hostname:
+            raise ValueError(f"Air-Gap Guard: No hostname found in URL: {url}")
+
+        # Check explicit local allowlist
+        if hostname.lower() in cls.ALLOWED_LOCAL_HOSTNAMES:
+            return
+
+        # Check IP address (must be loopback or private RFC1918 / RFC4193)
+        try:
+            ip = ipaddress.ip_address(hostname)
+            if ip.is_loopback or ip.is_private:
+                return
+            raise ValueError(
+                f"Air-Gap Guard: Public IP address '{hostname}' is forbidden in isolated mode. "
+                "Local inference must use loopback or private network."
+            )
+        except ValueError as err:
+            if "forbidden in isolated mode" in str(err):
+                raise
+            # If not an IP, it's an unapproved external hostname (e.g. googleapis.com, openai.com)
+            raise ValueError(
+                f"Air-Gap Guard: Hostname '{hostname}' is not a permitted local backend. "
+                "Cloud hostnames (e.g. googleapis.com, openai.com) are strictly forbidden in isolated mode."
+            )
 
     def validate_request(self, messages: list[dict[str, Any]]) -> None:
         """Validate request size against configured limit."""
@@ -192,67 +250,48 @@ class SofaShieldFast:
                 timeout=float(self.config.request_timeout),
             )
             response.raise_for_status()
+
+            duration_ms = (time.perf_counter() - start_time) * 1000.0
             data = response.json()
+
+            # Extract generated content from standard OpenAI choices
+            choices = data.get("choices", [])
+            if not choices or not isinstance(choices, list):
+                raise ShieldBackendError("Invalid response format from local LLM: missing 'choices'")
+
+            first_choice = choices[0]
+            message_obj = first_choice.get("message", {})
+            content = message_obj.get("content")
+
+            if content is None:
+                raise ShieldBackendError("Invalid response format from local LLM: missing 'message.content'")
+
+            self._record_success()
+            logger.info(
+                "Local LLM inference succeeded in %.2fms, finish_reason: %s",
+                duration_ms,
+                first_choice.get("finish_reason", "unknown"),
+            )
+            return str(content)
+
+        except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+            self._record_failure(exc)
+            logger.error("Local LLM connection error: %s", exc)
+            raise ShieldBackendError(f"Local LLM backend connection failed: {exc}") from exc
 
         except httpx.TimeoutException as exc:
             self._record_failure(exc)
-            logger.error("Local LLM request timed out after %ds: %s", self.config.request_timeout, exc)
-            raise ShieldBackendError(f"Local LLM backend request timed out: {exc}") from exc
-
-        except (httpx.ConnectError, httpx.NetworkError) as exc:
-            self._record_failure(exc)
-            logger.error("Local LLM connection error: %s", exc)
-            raise ShieldBackendError(f"Failed to connect to local LLM backend: {exc}") from exc
+            logger.error("Local LLM inference timed out after %ds", self.config.request_timeout)
+            raise ShieldBackendError(f"Local LLM backend timed out: {exc}") from exc
 
         except httpx.HTTPStatusError as exc:
             self._record_failure(exc)
             logger.error("Local LLM backend returned HTTP error status %d", exc.response.status_code)
-            raise ShieldBackendError(
-                f"Local LLM backend returned HTTP {exc.response.status_code}"
-            ) from exc
+            raise ShieldBackendError(f"Local LLM backend HTTP {exc.response.status_code}: {exc.response.text}") from exc
 
         except Exception as exc:
+            if isinstance(exc, ShieldInferenceError):
+                raise
             self._record_failure(exc)
-            logger.error("Unexpected error during local LLM backend inference: %s", exc)
-            raise ShieldBackendError(f"Local LLM backend inference failed: {exc}") from exc
-
-        # 4 & 5. Handle successful response
-        duration_ms = (time.perf_counter() - start_time) * 1000.0
-        self._record_success()
-
-        # Extract completion content
-        choices = data.get("choices", [])
-        if not choices or not isinstance(choices, list):
-            logger.error("Local LLM response missing 'choices' array")
-            raise ShieldBackendError("Invalid response format from local LLM backend: missing 'choices'")
-
-        first_choice = choices[0]
-        if not isinstance(first_choice, dict) or "message" not in first_choice:
-            logger.error("Local LLM choice missing 'message' object")
-            raise ShieldBackendError("Invalid response format from local LLM backend: missing 'message'")
-
-        msg_obj = first_choice["message"]
-        response_text = msg_obj.get("content", "")
-        if not isinstance(response_text, str):
-            response_text = str(response_text)
-
-        # 6. Log metadata only (NO message content logged for privacy and security)
-        usage = data.get("usage", {})
-        logger.info(
-            "Local LLM inference succeeded: model=%s, latency=%.2fms, messages_count=%d, prompt_chars=%d, response_chars=%d, prompt_tokens=%s, completion_tokens=%s",
-            self.config.local_llm_model,
-            duration_ms,
-            len(messages),
-            total_size,
-            len(response_text),
-            usage.get("prompt_tokens", "N/A"),
-            usage.get("completion_tokens", "N/A"),
-        )
-
-        return response_text
-
-    async def close(self) -> None:
-        """Close the underlying HTTP client connection pool."""
-        if self.client and not self.client.is_closed:
-            await self.client.aclose()
-            logger.info("SofaShieldFast HTTP client closed.")
+            logger.error("Unexpected error during local LLM inference: %s", exc)
+            raise ShieldBackendError(f"Unexpected local LLM backend error: {exc}") from exc
