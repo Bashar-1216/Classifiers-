@@ -50,9 +50,9 @@ class Settings(BaseSettings):
 
     # --- Rules & Knowledge ---
     rules_dir: str = Field(
-        default="./rules",
-        description="Path to YAML security rules",
-        alias="RULES_DIR",
+        default="./security_knowledge",
+        description="Path to centralized declarative security knowledge catalog",
+        alias="SECURITY_KNOWLEDGE_DIR",
     )
     confidence_threshold: float = Field(
         default=0.5,
