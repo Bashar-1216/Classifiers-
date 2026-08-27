@@ -1,4 +1,3 @@
-# Group 8
 
 # 🛡️ Secure AI Risk Engine
 
@@ -371,9 +370,6 @@ These results are experimental and do not constitute a certification or complian
 
 - The presence of audit logs or an internal Docker network alone does not prove SOC 2, GDPR, or HIPAA compliance. Operational and regulatory validation is outside the current code scope.
 
-## License
-
-The project metadata states Apache 2.0, but the repository currently has no `LICENSE` file. Add the license file before distributing the project under that license.
 
 ## References
 
