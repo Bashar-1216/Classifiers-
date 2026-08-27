@@ -11,6 +11,10 @@ Provides safe redaction replacing detected entities with standard tokens.
 
 from __future__ import annotations
 
+import logging
+import re
+from typing import Any, Dict, List, Tuple
+
 from security_knowledge.loader import KnowledgeLoader
 
 logger = logging.getLogger(__name__)
