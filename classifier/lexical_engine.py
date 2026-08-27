@@ -72,21 +72,16 @@ class BM25Ranker:
 
 
 class LexicalSignalEngine:
-    """4-Tier Lexical Engine (Exact, Regex, BM25, Character N-Grams)."""
-
-    INQUIRY_PREFIXES = (
-        "explain", "what is", "how do", "how to", "classify", "the article says", "summarize",
-        "write policy", "write a policy", "don't ignore", "do not ignore",
-        "اكتب policy", "اشرح", "ما هو", "ما هي", "ما الفرق", "ما معنى", "ما افضل", "ما أفضل",
-        "كيف احمي", "كيف أحمي", "كيف اختبر", "كيف أختبر", "كيف ابني", "كيف أبني", "كيف اراجع", "كيف أراجع",
-        "اعطني مثالا", "اعطني مثالًا", "اكتب system prompt", "هل عبارة", "هل عباره", "هل", "قيم ان", "قيّم إن"
-    )
+    """4-Tier Lexical Engine (Exact, Regex, BM25, Character N-Grams) using declarative security knowledge."""
 
     def __init__(self, adv_lexicon: list[str] | None = None, benign_lexicon: list[str] | None = None) -> None:
-        if adv_lexicon is None or benign_lexicon is None:
-            bundle = KnowledgeLoader.get_bundle()
-            adv_lexicon = adv_lexicon or bundle.adversarial_lexicon
-            benign_lexicon = benign_lexicon or bundle.benign_lexicon
+        bundle = KnowledgeLoader.get_bundle()
+        adv_lexicon = adv_lexicon or bundle.adversarial_lexicon
+        benign_lexicon = benign_lexicon or bundle.benign_lexicon
+
+        self.inquiry_prefixes = bundle.inquiry_prefixes
+        self.quoted_inquiry_markers = bundle.quoted_inquiry_markers
+        self.morphological_roots = bundle.morphological_roots
 
         self.adv_bm25 = BM25Ranker(adv_lexicon)
         self.benign_bm25 = BM25Ranker(benign_lexicon)
@@ -102,10 +97,10 @@ class LexicalSignalEngine:
 
     def _is_inquiry_or_educational(self, text: str) -> bool:
         t = text.strip().lower()
-        if t.startswith(self.INQUIRY_PREFIXES):
+        if self.inquiry_prefixes and t.startswith(self.inquiry_prefixes):
             return True
         if '"' in t or "'" in t or '«' in t or '“' in t or '”' in t:
-            if any(p in t for p in ("classify", "article says", "summarize", "explain why", "هل عبارة", "هل عباره", "هل", "قيم ان", "قيّم إن", "تعتبر")):
+            if any(p in t for p in self.quoted_inquiry_markers):
                 return True
         return False
 
@@ -129,10 +124,8 @@ class LexicalSignalEngine:
 
         # Subword morphological check (resilience to character repetition like هكّرررر or قرصنةةة)
         query_ngrams = self._get_char_ngrams(text)
-        if query_ngrams:
-            # Check roots
-            roots = {"خترق", "هكر", "سرق", "عطل", "تجاهل", "دمر"}
-            matched_roots = [r for r in roots if any(r in ng for ng in query_ngrams)]
+        if query_ngrams and self.morphological_roots:
+            matched_roots = [r for r in self.morphological_roots if any(r in ng for ng in query_ngrams)]
             if matched_roots:
                 scores["lexical_subword_threat"] = 0.85
 

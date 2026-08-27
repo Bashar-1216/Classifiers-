@@ -1,0 +1,9 @@
+version: '1.0'
+zero_width_pattern: '[\u200B-\u200D\uFEFF]'
+encoded_payload_pattern: '[A-Za-z0-9+/=]{24,}|[0-9a-fA-F]{32,}'
+entropy_threshold: 4.5
+confusable_scripts:
+- LATIN
+- CYRILLIC
+- GREEK
+- ARMENIAN

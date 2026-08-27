@@ -65,6 +65,14 @@ class SecurityKnowledgeBundle:
         pii_dlp_patterns: List[Dict[str, Any]],
         secret_dlp_patterns: List[Dict[str, Any]],
         semantic_anchors: Dict[str, List[str]],
+        adversarial_sequences: List[List[str]] | None = None,
+        override_vocabulary: List[str] | None = None,
+        metadata_modifiers: Dict[str, Any] | None = None,
+        inquiry_prefixes: tuple[str, ...] | None = None,
+        quoted_inquiry_markers: tuple[str, ...] | None = None,
+        morphological_roots: List[str] | None = None,
+        obfuscation_patterns: Dict[str, Any] | None = None,
+        multi_turn_rules: Dict[str, Any] | None = None,
     ) -> None:
         self.bundle_hash = bundle_hash
         self.ingress_rules = ingress_rules
@@ -77,6 +85,14 @@ class SecurityKnowledgeBundle:
         self.pii_dlp_patterns = pii_dlp_patterns
         self.secret_dlp_patterns = secret_dlp_patterns
         self.semantic_anchors = semantic_anchors
+        self.adversarial_sequences = adversarial_sequences or []
+        self.override_vocabulary = override_vocabulary or []
+        self.metadata_modifiers = metadata_modifiers or {}
+        self.inquiry_prefixes = inquiry_prefixes or ()
+        self.quoted_inquiry_markers = quoted_inquiry_markers or ()
+        self.morphological_roots = morphological_roots or []
+        self.obfuscation_patterns = obfuscation_patterns or {}
+        self.multi_turn_rules = multi_turn_rules or {}
 
 
 class KnowledgeLoader:
@@ -115,9 +131,9 @@ class KnowledgeLoader:
         all_hashes = [self._compute_file_hash(self.manifest_path)]
         seen_ids: Set[str] = set()
 
-        # 1. Load Ingress Rules (Default + Custom)
+        # 1. Load Rules (Default + Custom + Output Policy + Safety Rules)
         ingress_rules: List[RuleDefinition] = []
-        for src_key in ["ingress_default", "ingress_custom"]:
+        for src_key in ["ingress_default", "ingress_custom", "output_policy", "safety_rules"]:
             src_info = sources.get(src_key)
             if not src_info:
                 continue
@@ -248,6 +264,10 @@ class KnowledgeLoader:
                 if p_id in seen_ids:
                     raise ValueError(f"Duplicate PII ID: {p_id}")
                 seen_ids.add(p_id)
+                raw_pats = item.get("patterns", [])
+                if item.get("pattern"):
+                    raw_pats.append(item["pattern"])
+                item["compiled_patterns"] = [re.compile(p) for p in raw_pats]
                 pii_dlp_patterns.append(item)
 
         secret_dlp_patterns: List[Dict[str, Any]] = []
@@ -261,6 +281,10 @@ class KnowledgeLoader:
                 if p_id in seen_ids:
                     raise ValueError(f"Duplicate Secret ID: {p_id}")
                 seen_ids.add(p_id)
+                raw_pats = item.get("patterns", [])
+                if item.get("pattern"):
+                    raw_pats.append(item["pattern"])
+                item["compiled_patterns"] = [re.compile(p) for p in raw_pats]
                 secret_dlp_patterns.append(item)
 
         # 6. Load Semantic Anchors
@@ -271,6 +295,61 @@ class KnowledgeLoader:
             all_hashes.append(self._compute_file_hash(sem_path))
             sem_data = json.loads(sem_path.read_text(encoding="utf-8"))
             semantic_anchors = sem_data.get("clusters", {})
+
+        # 7. Load Adversarial Sequences & Override Vocab
+        adversarial_sequences: List[List[str]] = []
+        override_vocabulary: List[str] = []
+        seq_info = sources.get("adversarial_sequences", {})
+        seq_path = self.root_dir / seq_info.get("path", "sequences/adversarial_flows.yaml")
+        if seq_path.exists():
+            all_hashes.append(self._compute_file_hash(seq_path))
+            seq_data = yaml.safe_load(seq_path.read_text(encoding="utf-8")) or {}
+            adversarial_sequences = seq_data.get("adversarial_sequences", [])
+            override_vocabulary = seq_data.get("override_vocabulary", [])
+
+        # 8. Load Metadata Risk Modifiers
+        metadata_modifiers: Dict[str, Any] = {}
+        meta_info = sources.get("metadata_modifiers", {})
+        meta_path = self.root_dir / meta_info.get("path", "metadata/risk_modifiers.yaml")
+        if meta_path.exists():
+            all_hashes.append(self._compute_file_hash(meta_path))
+            metadata_modifiers = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
+
+        # 9. Load Inquiry Prefixes & Quoted Markers
+        inquiry_prefixes_tuple: tuple[str, ...] = ()
+        quoted_inquiry_markers_tuple: tuple[str, ...] = ()
+        inq_info = sources.get("inquiry_prefixes", {})
+        inq_path = self.root_dir / inq_info.get("path", "exclusions/inquiry_prefixes.json")
+        if inq_path.exists():
+            all_hashes.append(self._compute_file_hash(inq_path))
+            inq_data = json.loads(inq_path.read_text(encoding="utf-8")) or {}
+            inquiry_prefixes_tuple = tuple(inq_data.get("inquiry_prefixes", []))
+            quoted_inquiry_markers_tuple = tuple(inq_data.get("quoted_inquiry_markers", []))
+
+        # 10. Load Morphological Roots
+        morphological_roots: List[str] = []
+        root_info = sources.get("morphological_roots", {})
+        root_path = self.root_dir / root_info.get("path", "lexicons/morphological_roots.json")
+        if root_path.exists():
+            all_hashes.append(self._compute_file_hash(root_path))
+            root_data = json.loads(root_path.read_text(encoding="utf-8")) or {}
+            morphological_roots = root_data.get("morphological_roots", [])
+
+        # 11. Load Obfuscation Patterns
+        obfuscation_patterns: Dict[str, Any] = {}
+        obf_info = sources.get("obfuscation_patterns", {})
+        obf_path = self.root_dir / obf_info.get("path", "statistical/obfuscation_patterns.yaml")
+        if obf_path.exists():
+            all_hashes.append(self._compute_file_hash(obf_path))
+            obfuscation_patterns = yaml.safe_load(obf_path.read_text(encoding="utf-8")) or {}
+
+        # 12. Load Multi-Turn Context Rules
+        multi_turn_rules: Dict[str, Any] = {}
+        mt_info = sources.get("multi_turn_rules", {})
+        mt_path = self.root_dir / mt_info.get("path", "context/multi_turn_rules.yaml")
+        if mt_path.exists():
+            all_hashes.append(self._compute_file_hash(mt_path))
+            multi_turn_rules = yaml.safe_load(mt_path.read_text(encoding="utf-8")) or {}
 
         # Compute Bundle Hash
         bundle_hash = hashlib.sha256("".join(all_hashes).encode("utf-8")).hexdigest()[:16]
@@ -296,4 +375,12 @@ class KnowledgeLoader:
             pii_dlp_patterns=pii_dlp_patterns,
             secret_dlp_patterns=secret_dlp_patterns,
             semantic_anchors=semantic_anchors,
+            adversarial_sequences=adversarial_sequences,
+            override_vocabulary=override_vocabulary,
+            metadata_modifiers=metadata_modifiers,
+            inquiry_prefixes=inquiry_prefixes_tuple,
+            quoted_inquiry_markers=quoted_inquiry_markers_tuple,
+            morphological_roots=morphological_roots,
+            obfuscation_patterns=obfuscation_patterns,
+            multi_turn_rules=multi_turn_rules,
         )

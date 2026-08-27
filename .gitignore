@@ -47,3 +47,14 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Models & Large Weights
+models/
+*.safetensors
+*.safetensors.part
+*.bin
+*.onnx
+*.pt
+*.pth
+*.part
+download_safetensors.py

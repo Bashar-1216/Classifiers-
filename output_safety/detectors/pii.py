@@ -11,31 +11,19 @@ Provides safe redaction replacing detected entities with standard tokens.
 
 from __future__ import annotations
 
-import logging
-import re
+from security_knowledge.loader import KnowledgeLoader
 
 logger = logging.getLogger(__name__)
 
 
 class OutputPIIDetector:
     """
-    Detects and sanitizes PII in AI model responses.
+    Detects and sanitizes PII in AI model responses using declarative security knowledge.
     """
 
-    SSN_PATTERN = re.compile(r"\b(?!(?:000|666|9))\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b")
-
-    # Credit Cards
-    VISA_PATTERN = re.compile(r"\b4[0-9]{12}(?:[0-9]{3})?\b")
-    MASTERCARD_PATTERN = re.compile(
-        r"\b(?:5[1-5][0-9]{2}|222[1-9]|22[3-9][0-9]|2[3-6][0-9]{2}|27[01][0-9]|2720)[0-9]{12}\b"
-    )
-    AMEX_PATTERN = re.compile(r"\b3[47][0-9]{13}\b")
-    FORMATTED_CARD_PATTERN = re.compile(r"\b(?:\d{4}[-\s]){3}\d{4}\b")
-
-    EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
-    PHONE_PATTERN = re.compile(
-        r"(?:\+|00)(?:966|971|20|962|964|961|1|44)[ \-\.]?[0-9]{7,12}\b|\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b"
-    )
+    def __init__(self) -> None:
+        bundle = KnowledgeLoader.get_bundle()
+        self.dlp_patterns = bundle.pii_dlp_patterns
 
     @classmethod
     def _luhn_verify(cls, card_str: str) -> bool:
@@ -55,36 +43,26 @@ class OutputPIIDetector:
 
     def evaluate(self, text: str) -> dict[str, float]:
         """
-        Scan text for PII entities.
-
-        Returns:
-            Dict mapping PII category to confidence score.
+        Scan text for PII entities using declarative bundle patterns.
         """
         if not text:
             return {}
 
         scores: dict[str, float] = {}
 
-        if self.SSN_PATTERN.search(text):
-            scores["pii_ssn"] = 0.95
+        for entry in self.dlp_patterns:
+            category = entry.get("category", "pii_general")
+            confidence = entry.get("confidence", 0.85)
+            validation = entry.get("validation", "none")
+            compiled_patterns = entry.get("compiled_patterns", [])
 
-        # Check credit cards with Luhn validation
-        for pattern in (
-            self.VISA_PATTERN,
-            self.MASTERCARD_PATTERN,
-            self.AMEX_PATTERN,
-            self.FORMATTED_CARD_PATTERN,
-        ):
-            for match in pattern.finditer(text):
-                if self._luhn_verify(match.group()):
-                    scores["pii_credit_card"] = 0.95
+            for pattern in compiled_patterns:
+                for match in pattern.finditer(text):
+                    match_val = match.group()
+                    if validation == "luhn" and not self._luhn_verify(match_val):
+                        continue
+                    scores[category] = max(scores.get(category, 0.0), confidence)
                     break
-
-        if self.EMAIL_PATTERN.search(text):
-            scores["pii_email"] = 0.80
-
-        if self.PHONE_PATTERN.search(text):
-            scores["pii_phone"] = 0.75
 
         return scores
 
@@ -95,25 +73,19 @@ class OutputPIIDetector:
         if not text:
             return text
 
-        # 1. Redact SSN
-        redacted = self.SSN_PATTERN.sub("[REDACTED-SSN]", text)
+        redacted = text
+        for entry in self.dlp_patterns:
+            category = entry.get("category", "pii_general")
+            validation = entry.get("validation", "none")
+            compiled_patterns = entry.get("compiled_patterns", [])
+            token = "[REDACTED-" + category.replace("pii_", "").upper() + "]"
 
-        # 2. Redact Credit Cards (validated)
-        for pattern in (
-            self.FORMATTED_CARD_PATTERN,
-            self.VISA_PATTERN,
-            self.MASTERCARD_PATTERN,
-            self.AMEX_PATTERN,
-        ):
-            def replace_card(m: re.Match) -> str:
-                return "[REDACTED-CARD]" if self._luhn_verify(m.group()) else m.group()
-
-            redacted = pattern.sub(replace_card, redacted)
-
-        # 3. Redact Emails
-        redacted = self.EMAIL_PATTERN.sub("[REDACTED-EMAIL]", redacted)
-
-        # 4. Redact Phone Numbers
-        redacted = self.PHONE_PATTERN.sub("[REDACTED-PHONE]", redacted)
+            for pattern in compiled_patterns:
+                if validation == "luhn":
+                    def replace_card(m: re.Match) -> str:
+                        return token if self._luhn_verify(m.group()) else m.group()
+                    redacted = pattern.sub(replace_card, redacted)
+                else:
+                    redacted = pattern.sub(token, redacted)
 
         return redacted

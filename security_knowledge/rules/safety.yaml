@@ -1,0 +1,48 @@
+version: '1.0'
+rules:
+- id: SEC-SAFE-001
+  name: safety_hate_speech
+  category: safety_hate_speech
+  type: regex
+  severity: high
+  description: Detects hate speech, group discrimination, and calls for persecution
+  patterns:
+  - (?i)\b(?:inferior|subhuman|discriminate\s+against|should\s+be\s+(?:eliminated|exterminated?))\b
+  - (?i)\b(?:أقل\s+قيمة|اضطهاد|إبادة|تمييز\s+ضد)\b
+- id: SEC-SAFE-002
+  name: safety_violence
+  category: safety_violence
+  type: regex
+  severity: critical
+  description: Detects physical violence, assassination, and direct threats
+  patterns:
+  - (?i)\b(?:how\s+to\s+(?:hurt|harm|kill|assassinate)|threaten(?:ing)?\s+to\s+kill|I\s+will\s+kill)\b
+  - (?i)\b(?:كيف\s+(?:أؤذي|أقتل|أغتال)|سأقتلك|تهديد\s+بالقتل)\b
+- id: SEC-SAFE-003
+  name: safety_illegal
+  category: safety_illegal
+  type: regex
+  severity: critical
+  description: Detects forgery, counterfeit money, illicit drugs, weapons, and bomb
+    making
+  patterns:
+  - (?i)\b(?:fake\s+(?:documents?|passports?|ID)|forged?\s+(?:documents?|passports?|money)|counterfeit\s+money|how\s+to\s+make\s+(?:drugs?|meth|cocaine|weapons?|bombs?|guns?|explosives?))\b
+  - (?i)\b(?:وثائق\s+مزورة|جوازات\s+(?:مزورة|غير\s+قانونية)|أموال\s+مزيفة|صناعة\s+(?:مخدرات|أسلحة|متفجرات|قنبلة))\b
+- id: SEC-SAFE-004
+  name: safety_cyber_abuse
+  category: safety_cyber_abuse
+  type: regex
+  severity: critical
+  description: Detects cyber abuse, malware generation, unauthorized access, and hacking
+  patterns:
+  - (?i)\b(?:write\s+(?:malware|ransomware|virus|trojan)|steal\s+(?:passwords?|credentials?)|exploit\s+(?:script|code|vulnerability)|hack\s+(?:into|a|the)?|penetrate\s+system|ddos\s+attack)\b
+  - (?i)\b(?:برنامج\s+خبيث|فيروس|برمجيات\s+فدية|يسرق\s+كلمات\s+المرور|استغلال\s+ثغرة|طرق\s+اختراق|باختراقه|تهكير)\b
+- id: SEC-SAFE-005
+  name: safety_social_engineering
+  category: safety_social_engineering
+  type: regex
+  severity: high
+  description: Detects impersonation, authority spoofing, and urgency manipulation
+  patterns:
+  - (?i)\b(?:pretend\s+(?:to\s+be|you\s+are)\s+(?:my\s+)?(?:manager|admin|boss|ceo)|impersonate\s+(?:my\s+)?(?:manager|admin|boss)|approve\s+this\s+(?:transfer|payment)\s+(?:immediately|now))\b
+  - (?i)\b(?:تظاهر\s+أنك\s+(?:مديري|المسؤول|المدير)|انتحل\s+شخصية|وافق\s+على\s+هذا\s+(?:التحويل|الدفع)\s+فورا)\b

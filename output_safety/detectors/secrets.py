@@ -10,40 +10,23 @@ Scans model responses for leaked credentials, private keys, and API tokens:
 
 from __future__ import annotations
 
-import logging
-import re
+from security_knowledge.loader import KnowledgeLoader
 
 logger = logging.getLogger(__name__)
 
 
 class SecretsDetector:
     """
-    Detects exposed secrets and credentials in model outputs.
+    Detects exposed secrets and credentials in model outputs using declarative security knowledge.
     """
 
-    PRIVATE_KEY_PATTERN = re.compile(
-        r"-----BEGIN (?:RSA |DSA |EC |PGP |OPENSSH )?PRIVATE KEY-----.*?-----END (?:RSA |DSA |EC |PGP |OPENSSH )?PRIVATE KEY-----",
-        re.DOTALL,
-    )
-    AWS_SECRET_PATTERN = re.compile(
-        r"(?i)\b(?:aws_secret_access_key|aws_session_token)\s*[:=]\s*[A-Za-z0-9/+=]{20,}\b"
-    )
-    AWS_KEY_PATTERN = re.compile(
-        r"\b(?:AKIA|ASIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA)[A-Z0-9]{16}\b"
-    )
-    GITHUB_TOKEN_PATTERN = re.compile(
-        r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{36,255}\b"
-    )
-    STRIPE_KEY_PATTERN = re.compile(
-        r"\b(?:sk|rk)_live_[A-Za-z0-9]{24,99}\b"
-    )
-    GENERIC_SECRET_PATTERN = re.compile(
-        r"(?i)\b(?:api[_-]?key|secret[_-]?key|access[_-]?token|db[_-]?password)\s*[:=]\s*[\'\"`][A-Za-z0-9_\-\.\+/=]{16,}[\'\"`]"
-    )
+    def __init__(self) -> None:
+        bundle = KnowledgeLoader.get_bundle()
+        self.secret_patterns = bundle.secret_dlp_patterns
 
     def evaluate(self, text: str) -> dict[str, float]:
         """
-        Scan text for leaked secrets.
+        Scan text for leaked secrets using declarative bundle patterns.
 
         Returns:
             Dict mapping secret category to confidence score (1.0 = critical leak).
@@ -53,19 +36,14 @@ class SecretsDetector:
 
         scores: dict[str, float] = {}
 
-        if self.PRIVATE_KEY_PATTERN.search(text):
-            scores["secret_private_key"] = 1.0
+        for entry in self.secret_patterns:
+            category = entry.get("category", "secret_generic")
+            confidence = entry.get("confidence", 0.95)
+            compiled_patterns = entry.get("compiled_patterns", [])
 
-        if self.AWS_SECRET_PATTERN.search(text) or self.AWS_KEY_PATTERN.search(text):
-            scores["secret_aws_credentials"] = 1.0
-
-        if self.GITHUB_TOKEN_PATTERN.search(text):
-            scores["secret_github_token"] = 1.0
-
-        if self.STRIPE_KEY_PATTERN.search(text):
-            scores["secret_stripe_key"] = 1.0
-
-        if self.GENERIC_SECRET_PATTERN.search(text):
-            scores["secret_generic_token"] = 0.90
+            for pattern in compiled_patterns:
+                if pattern.search(text):
+                    scores[category] = max(scores.get(category, 0.0), confidence)
+                    break
 
         return scores

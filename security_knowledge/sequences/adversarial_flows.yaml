@@ -1,0 +1,55 @@
+version: '1.0'
+adversarial_sequences:
+- - ignore
+  - instructions
+  - show
+- - ignore
+  - instructions
+  - reveal
+- - ignore
+  - instructions
+  - print
+- - ignore
+  - rules
+  - system
+  - prompt
+- - forget
+  - rules
+  - developer
+- - تجاهل
+  - التعليمات
+  - اطبع
+- - تجاهل
+  - التعليمات
+  - اعرض
+- - تجاهل
+  - الاوامر
+  - الموجه
+- - تجاهل
+  - القيود
+  - النظام
+- - لا
+  - تكشف
+  - اول
+  - سطر
+- - بدون
+  - ذكر
+  - اول
+  - كلمة
+override_vocabulary:
+- ignore
+- disregard
+- forget
+- override
+- bypass
+- drop
+- disable
+- deactivate
+- unrestricted
+- jailbreak
+- dan
+- تجاهل
+- الغ
+- اسقط
+- تجاوز
+- عطل

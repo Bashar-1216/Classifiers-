@@ -1,0 +1,40 @@
+version: '1.0'
+user_roles:
+  untrusted_external:
+    values:
+    - guest
+    - anonymous
+    - external_untrusted
+    - public
+    score: 0.4
+    category: metadata_untrusted_external_role
+  restricted_internal:
+    values:
+    - contractor
+    - intern
+    score: 0.2
+    category: metadata_restricted_internal_role
+project_sensitivities:
+  strictly_confidential:
+    values:
+    - strictly_confidential
+    - top_secret
+    - m_and_a
+    - financial_unreleased
+    score: 0.9
+    category: metadata_strictly_confidential_project
+  confidential:
+    values:
+    - confidential
+    - internal_only
+    - restricted
+    score: 0.7
+    category: metadata_confidential_project
+environment_origins:
+  untrusted_network:
+    values:
+    - public_internet
+    - untrusted_dmz
+    - third_party_webhook
+    score: 0.35
+    category: metadata_untrusted_network_origin

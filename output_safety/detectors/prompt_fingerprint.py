@@ -13,6 +13,8 @@ import os
 import re
 from typing import Set
 
+from security_knowledge.loader import KnowledgeLoader
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,28 +26,12 @@ class PromptFingerprintDetector:
 
     DEFAULT_LEAK_THRESHOLD = 0.55
 
-    # Structural system prompt leak indicators
-    GENERIC_LEAK_SIGNATURES = [
-        re.compile(r'(?i)(?:here\s+is|this\s+is|my)\s+(?:the\s+)?(?:initial\s+|system\s+|original\s+)?(?:prompt|instructions|developer\s+guidelines):?\s*\n'),
-        re.compile(r'(?i)<(?:system|instructions|anthropic_thinking_protocol|tool_calling)>\s*you\s+are'),
-        re.compile(r'(?i)you\s+are\s+(?:an?\s+)?(?:AI|expert|assistant|agent)\b.*(?:your\s+(?:core\s+)?(?:goal|role|task|instructions)\s+is)'),
-        re.compile(r'(?i)(?:إليك|هذه\s+هي)\s+(?:تعليمات|أوامر|توجيهات)\s+(?:النظام|المطور|الأولية)\s*:'),
-    ]
-
     def __init__(
         self,
         protected_prompts: list[str] | None = None,
         leak_threshold: float = DEFAULT_LEAK_THRESHOLD,
         ngram_size: int = 5,
     ) -> None:
-        """
-        Initialize the prompt fingerprint detector.
-
-        Args:
-            protected_prompts: List of protected system prompt texts to shield from leakage.
-            leak_threshold: Overlap ratio (0.0 to 1.0) above which an output is considered a leak.
-            ngram_size: Shingle size (in words or character blocks) for fingerprinting.
-        """
         self.leak_threshold = leak_threshold
         self.ngram_size = ngram_size
         self.protected_prompts = protected_prompts or []
@@ -59,6 +45,14 @@ class PromptFingerprintDetector:
         self.protected_shingles: list[Set[str]] = [
             self._compute_shingles(p) for p in self.protected_prompts if p.strip()
         ]
+
+        # Load structural signatures from SecurityKnowledgeBundle
+        bundle = KnowledgeLoader.get_bundle()
+        self.generic_leak_signatures: list[re.Pattern] = []
+        for r in bundle.ingress_rules:
+            if r.category == "policy_system_prompt_leak" or "system_prompt_leak" in r.name:
+                for p in r.patterns:
+                    self.generic_leak_signatures.append(re.compile(p))
 
     def add_protected_prompt(self, prompt_text: str) -> None:
         """Register a new system prompt to protect."""
@@ -121,7 +115,7 @@ class PromptFingerprintDetector:
                         )
 
         # 2. Structural Boilerplate Signatures Check
-        for sig in self.GENERIC_LEAK_SIGNATURES:
+        for sig in self.generic_leak_signatures:
             if sig.search(response_text):
                 reasons.append(f"Structural system prompt header leakage pattern matched: '{sig.pattern[:35]}...'")
                 max_overlap = max(max_overlap, 0.85)

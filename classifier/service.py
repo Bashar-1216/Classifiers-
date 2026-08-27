@@ -48,6 +48,7 @@ class ClassifierService:
         self,
         rules_dir: str | None = None,
         confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
+        guard_model_path: str | None = None,
     ) -> None:
         # Fast Lexical & Deterministic Rules
         self.rule_engine = RuleEngine(rules_dir)
@@ -58,7 +59,7 @@ class ClassifierService:
         self.defenseclaw_metrics = DefenseClawMetrics()
 
         # Semantic & Specialized Guardrails
-        self.semantic_classifier = SemanticClassifier()
+        self.semantic_classifier = SemanticClassifier(guard_model_path=guard_model_path)
         self.pii_detector = PIIDetector()
         self.jailbreak_detector = JailbreakDetector()
         self.safety_detector = SafetyDetector()

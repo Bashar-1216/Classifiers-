@@ -1,9 +1,32 @@
-# ==============================================================================
-# Enterprise Custom Security Rules
-# ==============================================================================
-# Dedicated to organization-specific threat signatures and compliance constraints.
-# ==============================================================================
-
-version: "1.0"
-
-rules: []
+version: '1.0'
+rules:
+- id: CUST-RULE-001
+  name: enterprise_insider_financial_leak
+  category: security_financial_compliance
+  type: regex
+  severity: critical
+  description: Detects requests targeting unreleased quarterly earnings, M&A confidential
+    data, or insider financial records
+  patterns:
+  - (?i)\b(?:unreleased\s+(?:financials|earnings|quarterly\s+results)|insider\s+trading\s+data|confidential\s+m&a\s+targets|merger\s+acquisition\s+deal\s+room)\b
+  - (?i)\b(?:نتائج\s+مالية\s+غير\s+معلنة|أرباح\s+الربع\s+السري|صفقات\s+الاستحواذ\s+السرية|معلومات\s+التداول\s+الداخلية)\b
+- id: CUST-RULE-002
+  name: enterprise_proprietary_source_dump
+  category: security_ip_theft
+  type: regex
+  severity: high
+  description: Detects extraction of proprietary corporate source repositories, infrastructure
+    keys, or algorithm blueprints
+  patterns:
+  - (?i)\b(?:dump\s+internal\s+git\s+repo|extract\s+core\s+trading\s+algorithm|steal\s+proprietary\s+model\s+weights|download\s+entire\s+codebase)\b
+  - (?i)\b(?:سحب\s+مستودع\s+الكود\s+الداخلي|استخراج\s+خوارزميات\s+التداول\s+الخاصة|تسريب\s+السورس\s+كود\s+الكامل)\b
+- id: CUST-RULE-003
+  name: enterprise_shadow_ai_exfiltration
+  category: security_exfiltration
+  type: regex
+  severity: high
+  description: Detects unauthorized redirection of internal context or customer databases
+    to external shadow webhooks
+  patterns:
+  - (?i)\b(?:send\s+all\s+prompts\s+to\s+https?://|exfiltrate\s+customer\s+data\s+to\s+webhook|tunnel\s+records\s+via\s+dns|post\s+payload\s+to\s+discord\s+webhook)\b
+  - (?i)\b(?:أرسل\s+كافة\s+البيانات\s+إلى\s+رابط\s+خارجي|تسريب\s+بيانات\s+العملاء\s+عبر\s+webhook|إعادة\s+توجيه\s+المحادثات\s+لسيرفر\s+خارجي)\b

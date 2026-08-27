@@ -12,49 +12,49 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from security_knowledge.loader import KnowledgeLoader
+
 logger = logging.getLogger(__name__)
 
 
 class MetadataAnalyzer:
     """
-    Evaluates request caller metadata and privilege boundaries.
+    Evaluates request caller metadata and privilege boundaries using declarative security knowledge.
     """
 
     def __init__(self) -> None:
-        logger.info("MetadataAnalyzer initialized.")
+        bundle = KnowledgeLoader.get_bundle()
+        self.modifiers = bundle.metadata_modifiers
+        logger.info("MetadataAnalyzer initialized with declarative security knowledge.")
 
     def evaluate(self, metadata: dict[str, Any] | None) -> dict[str, float]:
         """
         Analyze metadata dictionary for environmental or privilege risk modifiers.
-
-        Args:
-            metadata: Request metadata (user_role, project_sensitivity, environment, etc.)
-
-        Returns:
-            Dictionary mapping metadata risk tags to confidence scores (0.0 to 1.0).
         """
         scores: dict[str, float] = {}
 
-        if not metadata:
+        if not metadata or not self.modifiers:
             return scores
 
         # 1. User Role Risk Modifier
         user_role = str(metadata.get("user_role", "")).lower()
-        if user_role in ("guest", "anonymous", "external_untrusted", "public"):
-            scores["metadata_untrusted_external_role"] = 0.40
-        elif user_role in ("contractor", "intern"):
-            scores["metadata_restricted_internal_role"] = 0.20
+        if user_role:
+            for group, cfg in self.modifiers.get("user_roles", {}).items():
+                if user_role in cfg.get("values", []):
+                    scores[cfg.get("category", f"metadata_{group}")] = cfg.get("score", 0.40)
 
         # 2. Project Sensitivity / Data Classification
         project_sensitivity = str(metadata.get("project_sensitivity", metadata.get("data_classification", ""))).lower()
-        if project_sensitivity in ("strictly_confidential", "top_secret", "m_and_a", "financial_unreleased"):
-            scores["metadata_strictly_confidential_project"] = 0.90
-        elif project_sensitivity in ("confidential", "internal_only", "restricted"):
-            scores["metadata_confidential_project"] = 0.70
+        if project_sensitivity:
+            for group, cfg in self.modifiers.get("project_sensitivities", {}).items():
+                if project_sensitivity in cfg.get("values", []):
+                    scores[cfg.get("category", f"metadata_{group}")] = cfg.get("score", 0.70)
 
         # 3. Environment Origin
         environment = str(metadata.get("environment", metadata.get("origin", ""))).lower()
-        if environment in ("public_internet", "untrusted_dmz", "third_party_webhook"):
-            scores["metadata_untrusted_network_origin"] = 0.35
+        if environment:
+            for group, cfg in self.modifiers.get("environment_origins", {}).items():
+                if environment in cfg.get("values", []):
+                    scores[cfg.get("category", f"metadata_{group}")] = cfg.get("score", 0.35)
 
         return scores

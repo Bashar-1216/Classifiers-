@@ -3,63 +3,29 @@ from __future__ import annotations
 import logging
 import re
 
+from security_knowledge.loader import KnowledgeLoader
+
 logger = logging.getLogger(__name__)
 
 
 class PIIDetector:
     """
     Personally Identifiable Information (PII) Detector.
-    Uses three layers:
-    1. Regex Pattern Matching (CC with Luhn, SSN, Email, Phone, IP, IBAN)
-    2. Entity Context Scoring (Structured patterns, co-occurrence)
-    3. Credential Detection (Keys, tokens, connection strings)
+    Uses declarative security knowledge bundle (PII patterns & Secret patterns).
     """
 
-    # Layer 1 Regex
-    FORMATTED_CC_REGEX = re.compile(r"\b(?:\d{4}[-\s]){3}\d{4}\b")
-    RAW_CC_REGEX = re.compile(
-        r"\b(?:4[0-9]{12}(?:[0-9]{3})?|"  # Visa
-        r"5[1-5][0-9]{14}|"  # MasterCard
-        r"2(?:22[1-9]|2[3-9][0-9]|[3-6][0-9]{2}|7[01][0-9]|720)[0-9]{12}|"  # MasterCard (2017+)
-        r"3[47][0-9]{13})\b"  # Amex
-    )
-    SSN_REGEX = re.compile(r"\b(?!(?:000|666|9))\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b")
-    EMAIL_REGEX = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
-    # Matches Int'l prefixes, specifically targeting +966, +971, +20, +962, +964, +961 and generic
-    PHONE_REGEX = re.compile(
-        r"(?:\+|00)(?:966|971|20|962|964|961|1|44)[ \-\.]?[0-9]{7,12}\b|\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b"
-    )
-    PRIVATE_IP_REGEX = re.compile(
-        r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})\b"
-    )
-    IBAN_REGEX = re.compile(r"\b[A-Z]{2}[0-9]{2}(?:[ ]?[a-zA-Z0-9]){11,28}\b")
-
-    # Layer 2 Context Regex
-    CONTEXT_RECORD_REGEX = re.compile(
-        r"(?i)(name|email|phone|address|ssn|dob|patient|customer|employee)\s*[:=]\s*\w+"
-    )
-
-    # Layer 3 Credentials Regex
-    JWT_REGEX = re.compile(
-        r"\beyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*\b"
-    )
-    PRIVATE_KEY_REGEX = re.compile(
-        r"-----BEGIN (?:RSA |DSA |EC |PGP |OPENSSH )?PRIVATE KEY-----.*?-----END (?:RSA |DSA |EC |PGP |OPENSSH )?PRIVATE KEY-----",
-        re.DOTALL,
-    )
-    AWS_KEY_REGEX = re.compile(
-        r"\b(?:AKIA|ASIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA)[A-Z0-9]{16}\b"
-    )
-    AWS_SECRET_REGEX = re.compile(
-        r"\b(?<![A-Za-z0-9/+=])[A-Za-z0-9/+=]{40}(?![A-Za-z0-9/+=])\b"
-    )
-    BEARER_TOKEN_REGEX = re.compile(
-        r"\bBearer [A-Za-z0-9\-._~+/]+=*\b", re.IGNORECASE
-    )
-    DB_CONN_REGEX = re.compile(
-        r"\b(?:password|pwd|secret_key|api_key|token)\s*[=:]\s*[\'\"]?([a-zA-Z0-9!@#$%^&*()_+={}\[\]|\\:;\"\'<>,.?/~`\-]{8,})[\'\"]?\b",
-        re.IGNORECASE,
-    )
+    def __init__(self) -> None:
+        bundle = KnowledgeLoader.get_bundle()
+        self.pii_patterns = bundle.pii_dlp_patterns
+        self.secret_patterns = bundle.secret_dlp_patterns
+        
+        self.context_record_regex: re.Pattern | None = None
+        for p in self.pii_patterns:
+            if p.get("id") == "DLP-PII-CONTEXT-RECORD":
+                compiled = p.get("compiled_patterns", [])
+                if compiled:
+                    self.context_record_regex = compiled[0]
+                break
 
     def _luhn_check(self, card_number: str) -> bool:
         """
@@ -81,33 +47,25 @@ class PIIDetector:
 
     def _evaluate_layer1_regex(self, text: str) -> dict[str, float]:
         """
-        Layer 1: Regex Pattern Matching.
-        Detects standard deterministic formats like CC, SSN, IP, IBAN, Email, Phone.
+        Layer 1: Regex Pattern Matching using declarative security knowledge.
         """
         scores: dict[str, float] = {}
 
-        # Check formatted and raw credit cards
-        all_cc_candidates: list[str] = self.FORMATTED_CC_REGEX.findall(text)
-        all_cc_candidates.extend(self.RAW_CC_REGEX.findall(text))
+        for entry in self.pii_patterns:
+            category = entry.get("category", "pii_general")
+            confidence = entry.get("confidence", 0.85)
+            validation = entry.get("validation", "none")
+            compiled_patterns = entry.get("compiled_patterns", [])
 
-        valid_ccs = [cc for cc in all_cc_candidates if self._luhn_check(cc)]
-        if valid_ccs:
-            scores["pii_credit_card"] = min(1.0, 0.85 + (len(valid_ccs) * 0.05))
-
-        if self.SSN_REGEX.search(text):
-            scores["pii_ssn"] = 0.95
-
-        if self.EMAIL_REGEX.search(text):
-            scores["pii_email"] = 0.80
-
-        if self.PHONE_REGEX.search(text):
-            scores["pii_phone"] = 0.75
-
-        if self.PRIVATE_IP_REGEX.search(text):
-            scores["pii_private_ip"] = 0.30
-
-        if self.IBAN_REGEX.search(text):
-            scores["pii_iban"] = 0.85
+            for pattern in compiled_patterns:
+                for match in pattern.finditer(text):
+                    match_val = match.group()
+                    if validation == "luhn":
+                        if self._luhn_check(match_val):
+                            scores[category] = max(scores.get(category, 0.0), confidence)
+                    else:
+                        scores[category] = max(scores.get(category, 0.0), confidence)
+                        break
 
         return scores
 
@@ -122,11 +80,12 @@ class PIIDetector:
         text_lower = text.lower()
 
         # Check structured record
-        structured_matches = self.CONTEXT_RECORD_REGEX.findall(text)
-        if len(structured_matches) >= 2:
-            scores["pii_structured_record"] = min(
-                1.0, 0.6 + (len(structured_matches) * 0.1)
-            )
+        if self.context_record_regex:
+            structured_matches = self.context_record_regex.findall(text)
+            if len(structured_matches) >= 2:
+                scores["pii_structured_record"] = min(
+                    1.0, 0.6 + (len(structured_matches) * 0.1)
+                )
 
         # Co-occurrence density check
         entities_present = 0
@@ -153,28 +112,20 @@ class PIIDetector:
 
     def _evaluate_layer3_credentials(self, text: str) -> dict[str, float]:
         """
-        Layer 3: Credential Detection.
-        Detects keys, tokens, JWTs, and db connection passwords.
+        Layer 3: Credential Detection using declarative security knowledge.
         """
         scores: dict[str, float] = {}
 
-        if self.PRIVATE_KEY_REGEX.search(text):
-            scores["pii_credential_private_key"] = 1.0
+        for entry in self.secret_patterns:
+            entry_id = entry.get("id", "").lower().replace("-", "_")
+            category = f"pii_credential_{entry_id.replace('dlp_secret_', '')}"
+            confidence = entry.get("confidence", 0.90)
+            compiled_patterns = entry.get("compiled_patterns", [])
 
-        if self.JWT_REGEX.search(text):
-            scores["pii_credential_jwt"] = 0.90
-
-        if self.AWS_KEY_REGEX.search(text):
-            scores["pii_credential_aws_key"] = 0.95
-
-        if self.AWS_SECRET_REGEX.search(text):
-            scores["pii_credential_aws_secret"] = 0.90
-
-        if self.BEARER_TOKEN_REGEX.search(text):
-            scores["pii_credential_bearer"] = 0.95
-
-        if self.DB_CONN_REGEX.search(text):
-            scores["pii_credential_db_conn"] = 0.85
+            for pattern in compiled_patterns:
+                if pattern.search(text):
+                    scores[category] = max(scores.get(category, 0.0), confidence)
+                    break
 
         return scores
 

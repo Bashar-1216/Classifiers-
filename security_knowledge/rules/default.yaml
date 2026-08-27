@@ -202,9 +202,10 @@ rules:
     type: regex
     severity: high
     source: 'OS Shell Injection Rules'
-    version: 2.2
-    description: 'Detects direct operating system execution commands (exec, eval, os.system, subprocess)'
+    version: 2.3
+    description: 'Detects direct operating system execution commands (exec, eval, os.system, subprocess, shadow dumps)'
     patterns:
-      - '(?i)(?:subprocess\.run|subprocess\.Popen|os\.system|exec\s*\(|eval\s*\(|shutil\.rmtree|pty\.spawn)'
-      - '(?i)(?:powershell(?:\.exe)?\s+-enc|cmd\.exe\s+/c|/bin/sh|/bin/bash)'
+      - '(?i)(?:subprocess(?:\.Popen|\.run|\.call|\.check_output|\.getoutput)?|os\.system\s*\(|os\.popen\s*\(|exec\s*\(|eval\s*\(|__import__\s*\(|shutil\.rmtree|pty\.spawn)'
+      - '(?i)(?:powershell(?:\.exe)?\s+-(?:e|enc|encodedcommand|c|command)|cmd\.exe|/bin/(?:bash|sh|zsh))'
+      - '(?i)(?:cat|dump|read)\s+/(?:etc/)?(?:shadow|passwd)'
       - '(?i)rm\s+-rf\s+/'

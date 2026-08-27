@@ -1,0 +1,25 @@
+version: '1.0'
+rules:
+- id: SEC-OUT-001
+  name: output_system_prompt_leak
+  category: policy_system_prompt_leak
+  type: regex
+  severity: high
+  description: Detects disclosure of internal developer instructions
+  patterns:
+  - (?i)\b(?:you are an ai developed by|system instructions:|system prompt:|base directives:)\b
+  - (?i)\b(?:my developer instructions are|initial instructions given to me:)\b
+  - (?i)(?:here\s+is|this\s+is|my)\s+(?:the\s+)?(?:initial\s+|system\s+|original\s+)?(?:prompt|instructions|developer\s+guidelines):?\s*\n
+  - (?i)<(?:system|instructions|anthropic_thinking_protocol|tool_calling)>\s*you\s+are
+  - (?i)you\s+are\s+(?:an?\s+)?(?:AI|expert|assistant|agent)\b.*(?:your\s+(?:core\s+)?(?:goal|role|task|instructions)\s+is)
+  - '(?i)(?:إليك|هذه\s+هي)\s+(?:تعليمات|أوامر|توجيهات)\s+(?:النظام|المطور|الأولية)\s*:'
+- id: SEC-OUT-002
+  name: output_exploit_payload
+  category: policy_exploit_payload
+  type: regex
+  severity: critical
+  description: Detects raw interactive reverse shells or encoded command injection
+    payloads
+  patterns:
+  - (?i)\b(?:import pty;\s*pty\.spawn|nc -e /bin/(?:bash|sh)|/bin/bash -i >& /dev/tcp/)\b
+  - (?i)\b(?:powershell -e [A-Za-z0-9+/=]{40,}|powershell -enc [A-Za-z0-9+/=]{40,})\b

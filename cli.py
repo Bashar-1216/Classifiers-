@@ -57,7 +57,8 @@ def print_banner():
 
 def cmd_classify(prompt: str, rules_dir: str = "./rules"):
     """Classify a single prompt and print full multi-dimensional risk analysis."""
-    classifier = ClassifierService(rules_dir=rules_dir)
+    settings = Settings()
+    classifier = ClassifierService(rules_dir=rules_dir, guard_model_path=settings.llama_guard_model_path)
     policy_engine = PolicyEngine()
 
     print(f"\n{BOLD}Input Prompt:{RESET} {prompt}")
@@ -111,7 +112,7 @@ async def async_chat_loop(rules_dir: str = "./rules"):
     settings = Settings()
     shield_config = ShieldConfig()
 
-    classifier = ClassifierService(rules_dir=rules_dir)
+    classifier = ClassifierService(rules_dir=rules_dir, guard_model_path=settings.llama_guard_model_path)
     policy_engine = PolicyEngine()
     normal_backend = NormalBackend(
         backend_url=settings.normal_backend_url,

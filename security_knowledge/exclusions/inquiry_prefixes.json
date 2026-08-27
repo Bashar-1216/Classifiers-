@@ -1,0 +1,41 @@
+{
+  "inquiry_prefixes": [
+    "explain",
+    "what is",
+    "what are",
+    "how do",
+    "how to",
+    "classify",
+    "the article says",
+    "summarize",
+    "write policy",
+    "write a policy",
+    "dont ignore",
+    "do not ignore",
+    "اشرح",
+    "ما هو",
+    "ما هي",
+    "ما الفرق",
+    "ما معنى",
+    "ما افضل",
+    "كيف احمي",
+    "كيف اختبر",
+    "كيف ابني",
+    "كيف اراجع",
+    "اعطني مثالا",
+    "هل عبارة",
+    "هل",
+    "قيم ان",
+    "لماذا تعتبر"
+  ],
+  "quoted_inquiry_markers": [
+    "classify",
+    "article says",
+    "summarize",
+    "explain why",
+    "هل عبارة",
+    "هل",
+    "قيم ان",
+    "تعتبر"
+  ]
+}

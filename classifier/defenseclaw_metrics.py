@@ -19,17 +19,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Any
 
-# DefenseClaw Imperative Verbs
-IMPERATIVE_VERBS = {
-    # English
-    "ignore", "disregard", "forget", "override", "bypass", "drop", "disable", "deactivate",
-    "reveal", "expose", "output", "print", "dump", "repeat", "reconstruct", "translate",
-    "extract", "export", "execute", "run", "display", "show", "give", "simulate", "switch",
-    "unrestrict", "elevate", "exploit", "hack", "penetrate", "infiltrate", "breach", "steal",
-    # Arabic
-    "تجاهل", "الغ", "اسقط", "تجاوز", "عطل", "اعرض", "اطبع", "استخرج", "كرر", "ترجم", "لخص",
-    "اكشف", "صدر", "انسخ", "ارسل", "صف", "اخترق", "هكر", "سرق", "ادخل", "سحب", "كسر",
-}
+from security_knowledge.loader import KnowledgeLoader
 
 
 @dataclass
@@ -46,7 +36,7 @@ class DefenseClawRawMetrics:
 
 
 class DefenseClawMetrics:
-    """Extracts raw statistical, imperative density, and script-mixing signals."""
+    """Extracts raw statistical, imperative density, and script-mixing signals using declarative security knowledge."""
 
     @staticmethod
     def calculate_shannon_entropy(text: str) -> float:
@@ -59,11 +49,13 @@ class DefenseClawMetrics:
 
     @staticmethod
     def calculate_imperative_density(text: str) -> tuple[float, int, int]:
-        """Calculates imperative verb density and counts."""
+        """Calculates imperative verb density and counts from declarative adversarial lexicon."""
         words = re.findall(r'\b\w+\b', text.lower())
         if not words:
             return 0.0, 0, 0
-        imperative_count = sum(1 for w in words if w in IMPERATIVE_VERBS)
+        bundle = KnowledgeLoader.get_bundle()
+        verb_set = set(bundle.adversarial_lexicon)
+        imperative_count = sum(1 for w in words if w in verb_set)
         density = imperative_count / len(words)
         return round(density, 4), imperative_count, len(words)
 
@@ -95,7 +87,6 @@ class DefenseClawMetrics:
                 elif "ARMENIAN" in name:
                     scripts.add("ARMENIAN")
 
-            # Word mixes distinct Latin/Cyrillic/Greek/Armenian lookalikes (classic homoglyph evasion)
             if len(scripts) > 1:
                 mixed_count += 1
 
@@ -104,13 +95,19 @@ class DefenseClawMetrics:
     @classmethod
     def extract_metrics(cls, text: str) -> DefenseClawRawMetrics:
         """
-        Extract raw metrics without issuing security verdicts.
+        Extract raw metrics using declarative thresholds and patterns.
         """
+        bundle = KnowledgeLoader.get_bundle()
+        obf = bundle.obfuscation_patterns
+        zw_pattern = obf.get("zero_width_pattern", r'[\u200B-\u200D\uFEFF]')
+        enc_pattern = obf.get("encoded_payload_pattern", r'[A-Za-z0-9+/=]{24,}|[0-9a-fA-F]{32,}')
+        entropy_thresh = obf.get("entropy_threshold", 4.5)
+
         entropy = cls.calculate_shannon_entropy(text)
         density, imp_count, word_count = cls.calculate_imperative_density(text)
         has_mixed, mixed_count = cls.detect_mixed_scripts(text)
-        has_zero_width = bool(re.search(r'[\u200B-\u200D\uFEFF]', text))
-        has_encoding = bool(re.search(r'[A-Za-z0-9+/=]{24,}|[0-9a-fA-F]{32,}', text)) and entropy > 4.5
+        has_zero_width = bool(re.search(zw_pattern, text))
+        has_encoding = bool(re.search(enc_pattern, text)) and entropy > entropy_thresh
 
         return DefenseClawRawMetrics(
             shannon_entropy=entropy,

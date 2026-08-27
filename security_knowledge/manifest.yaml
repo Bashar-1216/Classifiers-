@@ -15,6 +15,18 @@ sources:
     required: false
     description: "Enterprise and organization-specific custom threat rules"
 
+  output_policy:
+    path: "rules/output_policy.yaml"
+    format: "yaml"
+    required: false
+    description: "Declarative output safety, directive leakage, and payload rules"
+
+  safety_rules:
+    path: "rules/safety.yaml"
+    format: "yaml"
+    required: false
+    description: "Declarative safety rules (hate speech, violence, illegal activities, cyber abuse, social engineering)"
+
   adversarial_lexicon:
     path: "lexicons/adversarial.json"
     format: "json"
@@ -68,3 +80,39 @@ sources:
     format: "json"
     required: true
     description: "Semantic category anchors and canonical intent prototypes for contrastive vector classification"
+
+  adversarial_sequences:
+    path: "sequences/adversarial_flows.yaml"
+    format: "yaml"
+    required: false
+    description: "Multi-token sequence ordering flows and structural injection vocabularies"
+
+  metadata_modifiers:
+    path: "metadata/risk_modifiers.yaml"
+    format: "yaml"
+    required: false
+    description: "Role, data classification, and origin network risk modifiers and weights"
+
+  inquiry_prefixes:
+    path: "exclusions/inquiry_prefixes.json"
+    format: "json"
+    required: false
+    description: "Educational and inquiry prefixes and boundary markers for false-positive reduction"
+
+  morphological_roots:
+    path: "lexicons/morphological_roots.json"
+    format: "json"
+    required: false
+    description: "Subword roots for morphological distortion and elongation resilience"
+
+  obfuscation_patterns:
+    path: "statistical/obfuscation_patterns.yaml"
+    format: "yaml"
+    required: false
+    description: "Zero-width and encoded payload statistical thresholds and patterns"
+
+  multi_turn_rules:
+    path: "context/multi_turn_rules.yaml"
+    format: "yaml"
+    required: false
+    description: "Declarative multi-turn trajectory, quoted trap, and salami assembly rules"

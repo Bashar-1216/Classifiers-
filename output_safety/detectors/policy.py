@@ -9,44 +9,39 @@ Evaluates model responses against output safety policies:
 
 from __future__ import annotations
 
-import logging
-import re
+from security_knowledge.loader import KnowledgeLoader
 
 logger = logging.getLogger(__name__)
 
 
 class OutputPolicyDetector:
     """
-    Evaluates model outputs against security policy constraints.
+    Evaluates model outputs against security policy constraints using declarative security knowledge.
     """
 
-    SYSTEM_PROMPT_LEAK_PATTERNS = [
-        re.compile(r"(?i)\b(?:you are an ai developed by|system instructions:|system prompt:|base directives:)\b"),
-        re.compile(r"(?i)\b(?:my developer instructions are|initial instructions given to me:)\b"),
-    ]
-
-    EXPLOIT_PATTERNS = [
-        re.compile(r"(?i)\b(?:import pty;\s*pty\.spawn|nc -e /bin/(?:bash|sh)|/bin/bash -i >& /dev/tcp/)\b"),
-        re.compile(r"(?i)\b(?:powershell -e [A-Za-z0-9+/=]{40,}|powershell -enc [A-Za-z0-9+/=]{40,})\b"),
-    ]
+    def __init__(self) -> None:
+        bundle = KnowledgeLoader.get_bundle()
+        self.rules = [
+            r for r in bundle.ingress_rules
+            if r.category.startswith("policy_") or r.name.startswith("output_")
+        ]
+        self._compiled: dict[str, list[re.Pattern]] = {}
+        for r in self.rules:
+            self._compiled[r.category] = [re.compile(p) for p in r.patterns]
 
     def evaluate(self, text: str) -> dict[str, float]:
         """
-        Scan response text for policy violations.
+        Scan response text for policy violations using declarative security knowledge.
         """
         if not text:
             return {}
 
         scores: dict[str, float] = {}
 
-        for pattern in self.SYSTEM_PROMPT_LEAK_PATTERNS:
-            if pattern.search(text):
-                scores["policy_system_prompt_leak"] = 0.90
-                break
-
-        for pattern in self.EXPLOIT_PATTERNS:
-            if pattern.search(text):
-                scores["policy_exploit_payload"] = 1.0
-                break
+        for category, patterns in self._compiled.items():
+            for pattern in patterns:
+                if pattern.search(text):
+                    scores[category] = 1.0 if "exploit" in category else 0.90
+                    break
 
         return scores

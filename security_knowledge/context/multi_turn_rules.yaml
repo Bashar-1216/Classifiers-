@@ -1,0 +1,39 @@
+version: '1.0'
+quoted_attack_marker: (?i)[" \«“].*?(?:ignore|reveal|system\s+prompt|تعليمات|اكشف).*?["\»]
+sensitive_asset_terms:
+- secret
+- api key
+- credentials
+- أسرار
+- اسرار
+- مفاتيح
+- system prompt
+- موجه
+- password
+- token
+sensitive_asset_probe_pattern: (?i)\b(?:أي\s+منها\s+موجود\s+عندك|هل\s+عندك|ما\s+الموجود\s+عندك|do\s+you\s+have\s+any)\b
+salami_variable_markers:
+- 'let '
+- variable
+- تخيل
+- 'var '
+- 'const '
+salami_combiner_verbs:
+- combine
+- execute
+- run
+- concat
+- now do
+- اجمعها
+- نفذ
+- طبق
+persona_spoof_pattern: (?i)\b(?:admin|authorized|superadmin|security\s+engineer|مدير|مسؤول|developer|root)\b
+persona_escalation_verbs:
+- route
+- cloud
+- اسمح
+- allow
+- override
+- تصريح
+- authorized
+- bypass

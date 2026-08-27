@@ -14,36 +14,20 @@ import logging
 import re
 from typing import Any
 
+from security_knowledge.loader import KnowledgeLoader
+
 logger = logging.getLogger(__name__)
-
-# Known adversarial sequence flows
-ADVERSARIAL_SEQUENCES: list[list[str]] = [
-    ["ignore", "instructions", "show"],
-    ["ignore", "instructions", "reveal"],
-    ["ignore", "instructions", "print"],
-    ["ignore", "rules", "system", "prompt"],
-    ["forget", "rules", "developer"],
-    ["تجاهل", "التعليمات", "اطبع"],
-    ["تجاهل", "التعليمات", "اعرض"],
-    ["تجاهل", "الاوامر", "الموجه"],
-    ["تجاهل", "القيود", "النظام"],
-    ["لا", "تكشف", "اول", "سطر"],
-    ["بدون", "ذكر", "اول", "كلمة"],
-]
-
-OVERRIDE_VOCAB = {
-    "ignore", "disregard", "forget", "override", "bypass", "drop", "disable", "deactivate",
-    "unrestricted", "jailbreak", "dan",
-    "تجاهل", "الغ", "اسقط", "تجاوز", "عطل"
-}
 
 
 class StructureSignalEngine:
-    """Evaluates the structural and sequential shape of the prompt."""
+    """Evaluates the structural and sequential shape of the prompt using declarative security knowledge."""
 
     def __init__(self) -> None:
-        self.sequences = ADVERSARIAL_SEQUENCES
-        self.override_vocab = OVERRIDE_VOCAB
+        bundle = KnowledgeLoader.get_bundle()
+        self.sequences = bundle.adversarial_sequences
+        self.override_vocab = set(bundle.override_vocabulary or bundle.adversarial_lexicon)
+        self.inquiry_prefixes = bundle.inquiry_prefixes
+        self.quoted_inquiry_markers = bundle.quoted_inquiry_markers
 
     def evaluate_sequence(self, text: str) -> float:
         """
@@ -65,20 +49,12 @@ class StructureSignalEngine:
 
         return 0.0
 
-    INQUIRY_PREFIXES = (
-        "explain", "what is", "how do", "how to", "classify", "the article says", "summarize",
-        "write policy", "write a policy", "don't ignore", "do not ignore",
-        "اكتب policy", "اشرح", "ما هو", "ما هي", "ما الفرق", "ما معنى", "ما افضل", "ما أفضل",
-        "كيف احمي", "كيف أحمي", "كيف اختبر", "كيف أختبر", "كيف ابني", "كيف أبني", "كيف اراجع", "كيف أراجع",
-        "اعطني مثالا", "اعطني مثالًا", "اكتب system prompt", "هل عبارة", "قيم ان", "قيّم إن"
-    )
-
     def _is_inquiry_or_educational(self, text: str) -> bool:
         t = text.strip().lower()
-        if t.startswith(self.INQUIRY_PREFIXES):
+        if self.inquiry_prefixes and t.startswith(self.inquiry_prefixes):
             return True
         if '"' in t or "'" in t or '«' in t or '“' in t:
-            if any(p in t for p in ("classify", "article says", "summarize", "explain why", "هل عبارة", "قيم ان", "قيّم إن")):
+            if any(p in t for p in self.quoted_inquiry_markers):
                 return True
         return False
 

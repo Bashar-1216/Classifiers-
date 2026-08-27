@@ -59,6 +59,11 @@ class Settings(BaseSettings):
         description="Threshold for RESTRICTED classification",
         alias="CONFIDENCE_THRESHOLD",
     )
+    llama_guard_model_path: str = Field(
+        default="E:/models/Llama-Guard-3-1B",
+        description="Path or ID of the local neural safety guard model",
+        alias="LLAMA_GUARD_MODEL_PATH",
+    )
 
     model_config = {
         "env_file": ".env",

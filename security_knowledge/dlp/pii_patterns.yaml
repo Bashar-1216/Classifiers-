@@ -50,3 +50,10 @@ patterns:
     validation: none
     patterns:
       - '\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})\b'
+
+  - id: DLP-PII-CONTEXT-RECORD
+    category: pii_structured_record
+    confidence: 0.60
+    validation: none
+    patterns:
+      - '(?i)(?:name|email|phone|address|ssn|dob|patient|customer|employee)\s*[:=]\s*\w+'
