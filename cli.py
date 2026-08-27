@@ -31,18 +31,19 @@ from output_safety import OutputSafetyEngine
 from policy.engine import PolicyEngine
 from policy.models import Route
 from router.normal_backend import NormalBackend
+from router.request_pipeline import RequestPipeline
+from router.service import RouterService
+from router.shield_backend import ShieldBackend, ShieldUnavailableError
+from schemas import ChatRequest, Message
 from shield.config import ShieldConfig
-from shield.judge import LocalJudge
-from shield.models import JudgeVerdict
-from shield.shield_fast import CircuitBreakerOpenError, ShieldBackendError, SofaShieldFast
 
 # Terminal ANSI Colors
-RESET = "\033[0m"
-BOLD = "\033[1m"
-GREEN = "\033[92m"
-RED = "\033[91m"
-YELLOW = "\033[93m"
-CYAN = "\033[96m"
+RESET = "[0m"
+BOLD = "[1m"
+GREEN = "[92m"
+RED = "[91m"
+YELLOW = "[93m"
+CYAN = "[96m"
 
 
 def print_banner():
@@ -102,25 +103,29 @@ def cmd_output_safety(text: str):
 
 
 async def async_chat_loop(rules_dir: str = "./rules"):
-    """Interactive CLI REPL for live prompt testing with live AI generation."""
+    """Interactive CLI REPL for live prompt testing with unified request pipeline."""
     print_banner()
     print(f"{YELLOW}Interactive Mode -- Type any prompt to test Risk Assessment & AI generation.{RESET}")
     print(f"Type '{BOLD}exit{RESET}' or '{BOLD}quit{RESET}' to stop.\n")
 
     settings = Settings()
     shield_config = ShieldConfig()
+
     classifier = ClassifierService(rules_dir=rules_dir)
     policy_engine = PolicyEngine()
-    judge = LocalJudge()
-    shield_fast = SofaShieldFast(config=shield_config)
-    output_safety = OutputSafetyEngine()
-
     normal_backend = NormalBackend(
         backend_url=settings.normal_backend_url,
         api_key=settings.normal_backend_api_key or None,
         default_model=settings.normal_backend_model,
         timeout=settings.normal_backend_timeout,
     )
+    shield_backend = ShieldBackend(
+        shield_url=shield_config.local_llm_url,
+        timeout=shield_config.request_timeout,
+    )
+    router = RouterService(normal_backend=normal_backend, shield_backend=shield_backend)
+    pipeline = RequestPipeline(classifier=classifier, policy_engine=policy_engine, router=router)
+    output_safety = OutputSafetyEngine()
 
     try:
         while True:
@@ -132,60 +137,38 @@ async def async_chat_loop(rules_dir: str = "./rules"):
                     print("Exiting...")
                     break
 
-                # 1. Multi-dimensional Risk Assessment
-                result = classifier.classify(prompt)
-                decision = policy_engine.evaluate(result)
+                request = ChatRequest(
+                    messages=[Message(role="user", content=prompt)],
+                    prompt=prompt,
+                )
 
-                cls_color = RED if result.classification == Classification.RESTRICTED else GREEN
-                route_color = RED if decision.route == Route.SHIELD else GREEN
+                # Single authoritative entrypoint: classify -> policy -> route
+                try:
+                    response, decision = await pipeline.process(request)
+                    result = decision.classification_result
 
-                print(f"  * Classification:   {cls_color}{BOLD}{result.classification.value}{RESET} (Risk Score: {result.confidence:.2f})")
-                print(f"  * Policy Decision:  {route_color}{BOLD}{decision.route.value}{RESET}")
+                    cls_color = RED if result.classification == Classification.RESTRICTED else GREEN
+                    route_color = RED if decision.route == Route.SHIELD else GREEN
 
-                if result.categories:
-                    active_cats = [f"{k}={v:.2f}" for k, v in result.categories.items() if v > 0]
-                    if active_cats:
-                        print(f"  * Risk Categories:  {YELLOW}{', '.join(active_cats)}{RESET}")
+                    print(f"  * Classification:   {cls_color}{BOLD}{result.classification.value}{RESET} (Risk Score: {result.confidence:.2f})")
+                    print(f"  * Policy Decision:  {route_color}{BOLD}{decision.route.value}{RESET}")
 
-                if result.reasons:
-                    print(f"  * Detected Triggers: {YELLOW}{', '.join(result.reasons)}{RESET}")
+                    if result.categories:
+                        active_cats = [f"{k}={v:.2f}" for k, v in result.categories.items() if v > 0]
+                        if active_cats:
+                            print(f"  * Risk Categories:  {YELLOW}{', '.join(active_cats)}{RESET}")
 
-                # 2. Execution depending on Route
-                if decision.route == Route.SHIELD:
-                    judge_verdict = judge.evaluate_request([{"role": "user", "content": prompt}])
-                    j_color = RED if judge_verdict == JudgeVerdict.DENY else GREEN
-                    print(f"  * Local Judge:      {j_color}{judge_verdict.value}{RESET}")
-                    print(f"  * Security Action:  {RED}[SHIELD] Isolated Local Processing (ZERO Cloud Leakage){RESET}")
+                    if result.reasons:
+                        print(f"  * Detected Triggers: {YELLOW}{', '.join(result.reasons)}{RESET}")
 
-                    if judge_verdict == JudgeVerdict.DENY:
-                        print(f"\n{RED}{BOLD}[SHIELD BLOCKED]:{RESET} Request rejected by Local Judge pre-check (dangerous pattern detected).\n")
+                    if decision.route == Route.SHIELD:
+                        print(f"  * Security Action:  {RED}[SHIELD] Isolated Local Processing (ZERO Cloud Leakage){RESET}")
+                        raw_shield_resp = response.choices[0].message.content
+                        print(f"\n{YELLOW}{BOLD}[SHIELD RESPONSE (Local Isolated Execution)]:{RESET}")
+                        print(f"{raw_shield_resp}\n")
                     else:
-                        print(f"  * Local Inference Engine: {CYAN}{shield_config.local_llm_model}{RESET} at {shield_config.local_llm_url}")
-                        try:
-                            # Attempt live execution on local GPU inference endpoint if available
-                            raw_shield_resp = await shield_fast.infer([{"role": "user", "content": prompt}])
-                            # Local Judge Post-Response evaluation & redaction
-                            j_resp_verdict = judge.evaluate_response(raw_shield_resp)
-                            if j_resp_verdict == JudgeVerdict.DENY:
-                                print(f"\n{RED}{BOLD}[SHIELD RESPONSE BLOCKED]:{RESET} Response leaked critical secret or dangerous content.\n")
-                            else:
-                                final_shield_resp = judge.redact_response(raw_shield_resp)
-                                print(f"\n{YELLOW}{BOLD}[SHIELD RESPONSE (Local Isolated GPU Execution)]:{RESET}")
-                                print(f"{final_shield_resp}\n")
-                        except (ShieldBackendError, CircuitBreakerOpenError, Exception) as shield_err:
-                            print(f"\n{RED}{BOLD}[SHIELD UNAVAILABLE]:{RESET}")
-                            print(f"  Local GPU/Inference backend is offline ({shield_err}).")
-                            print("  Request was NOT processed.")
-                            print(f"  {GREEN}{BOLD}FAIL-CLOSED ENFORCED: 0 requests were sent to the cloud.{RESET}\n")
-
-                else:
-                    print(f"  * Security Action:  {GREEN}[NORMAL] Forwarding to Cloud Backend ({settings.normal_backend_model}){RESET}")
-                    print("  * Fetching response...")
-                    try:
-                        ai_response = await normal_backend.send([{"role": "user", "content": prompt}])
-                        raw_text = ai_response["choices"][0]["message"]["content"].strip()
-
-                        # 3. Output Safety Inspection
+                        print(f"  * Security Action:  {GREEN}[NORMAL] Forwarding to Cloud Backend ({settings.normal_backend_model}){RESET}")
+                        raw_text = response.choices[0].message.content
                         safety_res = output_safety.evaluate(raw_text)
                         final_text = safety_res.sanitized_text
 
@@ -194,15 +177,27 @@ async def async_chat_loop(rules_dir: str = "./rules"):
                         if safety_res.is_modified:
                             print(f"{YELLOW}[Output Safety Applied: {safety_res.verdict.value}]{RESET}\n")
 
-                    except Exception as exc:
-                        print(f"\n{RED}[Backend Error]: {exc}{RESET}\n")
+                except ShieldUnavailableError as shield_err:
+                    # Strict Fail-Closed Guarantee: No cloud fallback
+                    print(f"  * Classification:   {RED}{BOLD}RESTRICTED{RESET}")
+                    print(f"  * Policy Decision:  {RED}{BOLD}SHIELD{RESET}")
+                    print(f"  * Security Action:  {RED}[SHIELD] Isolated Local Processing (ZERO Cloud Leakage){RESET}")
+                    print(f"\n{RED}{BOLD}[SHIELD UNAVAILABLE]:{RESET}")
+                    print(f"  Local GPU/Inference backend is offline ({shield_err}).")
+                    print("  Request was NOT processed.")
+                    print(f"  {GREEN}{BOLD}FAIL-CLOSED ENFORCED: 0 requests were sent to the cloud.{RESET}\n")
+
+                except Exception as exc:
+                    print(f"\n{RED}[Execution Error]: {exc}{RESET}\n")
 
             except (KeyboardInterrupt, EOFError):
                 print("\nExiting...")
                 break
     finally:
-        await normal_backend.close()
-        await shield_fast.client.aclose()
+        if normal_backend._client and not normal_backend._client.is_closed:
+            await normal_backend._client.aclose()
+        if shield_backend._client and not shield_backend._client.is_closed:
+            await shield_backend._client.aclose()
 
 
 def cmd_interactive(rules_dir: str = "./rules"):
