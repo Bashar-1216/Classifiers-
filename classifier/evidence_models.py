@@ -162,6 +162,7 @@ class SecurityEvidence(BaseModel):
     """
 
     evidence_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    request_id: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     canonical_text: str = ""
     raw_prompt_hash: str = ""

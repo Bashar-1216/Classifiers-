@@ -113,6 +113,24 @@ class RouterService:
         """Route to normal AI backend."""
         logger.info("Routing to NORMAL backend")
 
+        # If API key is not configured, provide a clear offline notification without error
+        if not self.normal_backend.api_key:
+            logger.info("NORMAL backend API key not configured — returning simulated clean response")
+            return ChatResponse(
+                model=self.normal_backend.default_model,
+                choices=[
+                    ChatChoice(
+                        index=0,
+                        message=Message(
+                            role="assistant",
+                            content="[NORMAL ROUTE PERMITTED]: The prompt is safe and verified with zero policy violations (Permitted Destination: Cloud). Configure NORMAL_BACKEND_API_KEY in .env to stream live LLM responses.",
+                        ),
+                        finish_reason="stop",
+                    )
+                ],
+                route_taken="NORMAL",
+            )
+
         try:
             kwargs: dict[str, Any] = {}
             if request.model:

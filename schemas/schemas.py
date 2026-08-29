@@ -134,13 +134,13 @@ class ChatRequest(BaseModel):
     def get_full_text(self) -> str:
         """
         Extract all user-facing text from the request for risk assessment.
+        Avoids duplicate concatenation when both prompt and messages are supplied.
         """
-        parts: list[str] = []
+        if self.messages:
+            return " ".join(m.content for m in self.messages if m.content and m.content.strip())
         if self.prompt:
-            parts.append(self.prompt)
-        for msg in self.messages:
-            parts.append(msg.content)
-        return " ".join(parts)
+            return self.prompt.strip()
+        return ""
 
 
 class ChatChoice(BaseModel):

@@ -140,7 +140,6 @@ async def async_chat_loop(rules_dir: str = "./rules"):
 
                 request = ChatRequest(
                     messages=[Message(role="user", content=prompt)],
-                    prompt=prompt,
                 )
 
                 # Single authoritative entrypoint: classify -> policy -> route

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Request Pipeline — Single Authoritative Entrypoint for all AI Requests.
 
 Enforces strict, mandatory, sequential execution:
@@ -50,7 +50,12 @@ class RequestPipeline:
         Process request through the mandatory security chain:
           classify -> policy -> (optional judge escalation -> re-evaluate) -> route
         """
+        import uuid
+        if not request.request_id:
+            request.request_id = f"req-{uuid.uuid4().hex[:8]}"
+
         meta_dict = metadata or (request.metadata.model_dump() if request.metadata else {})
+        meta_dict["request_id"] = request.request_id
         messages_list = [msg.model_dump() for msg in request.messages] if request.messages else []
 
         # 1. Mandatory In-line Synchronous Evidence Generation
@@ -59,6 +64,7 @@ class RequestPipeline:
             messages=messages_list,
             metadata=meta_dict,
         )
+        evidence.request_id = request.request_id
 
         # 2. Declarative Policy Evaluation
         decision = self.policy_engine.evaluate(evidence, metadata=meta_dict)
