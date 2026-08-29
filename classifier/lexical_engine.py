@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class BM25Ranker:
-    """Lightweight BM25 term weighting ranker."""
+    """High-performance inverted-index BM25 term weighting ranker."""
 
     def __init__(self, corpus: list[str], k1: float = 1.5, b: float = 0.75) -> None:
         self.k1 = k1
@@ -29,46 +29,42 @@ class BM25Ranker:
         self.corpus = corpus
         self.doc_len = [len(self._tokenize(doc)) for doc in corpus]
         self.avg_doc_len = sum(self.doc_len) / max(1, len(corpus))
-        self.doc_freqs: dict[str, int] = Counter()
-        self.doc_token_counts: list[dict[str, int]] = []
+        self.inverted_index: dict[str, list[tuple[int, int]]] = {}
+        doc_freqs: dict[str, int] = Counter()
 
-        for doc in corpus:
+        for doc_idx, doc in enumerate(corpus):
             tokens = self._tokenize(doc)
             counts = Counter(tokens)
-            self.doc_token_counts.append(counts)
-            for token in counts:
-                self.doc_freqs[token] += 1
+            for token, count in counts.items():
+                self.inverted_index.setdefault(token, []).append((doc_idx, count))
+                doc_freqs[token] += 1
 
         self.idf: dict[str, float] = {}
         n_docs = len(corpus)
-        for term, df in self.doc_freqs.items():
+        for term, df in doc_freqs.items():
             self.idf[term] = math.log(1 + (n_docs - df + 0.5) / (df + 0.5))
 
     def _tokenize(self, text: str) -> list[str]:
         return re.findall(r'\b\w+\b', text.lower())
 
     def get_score(self, query_tokens: list[str]) -> float:
-        """Returns max BM25 score against corpus."""
+        """Returns max BM25 score against corpus using inverted index."""
         if not query_tokens or not self.corpus:
             return 0.0
 
-        max_score = 0.0
-        for i, doc_counts in enumerate(self.doc_token_counts):
-            score = 0.0
-            doc_len = self.doc_len[i]
-            for q in query_tokens:
-                if q not in doc_counts:
-                    continue
-                tf = doc_counts[q]
-                idf = self.idf.get(q, 0.1)
+        scores: dict[int, float] = {}
+        unique_q = set(query_tokens)
+        for q in unique_q:
+            if q not in self.inverted_index:
+                continue
+            idf = self.idf.get(q, 0.1)
+            for doc_idx, tf in self.inverted_index[q]:
+                doc_len = self.doc_len[doc_idx]
                 num = tf * (self.k1 + 1)
                 denom = tf + self.k1 * (1 - self.b + self.b * (doc_len / max(1, self.avg_doc_len)))
-                score += idf * (num / denom)
+                scores[doc_idx] = scores.get(doc_idx, 0.0) + idf * (num / denom)
 
-            if score > max_score:
-                max_score = score
-
-        return max_score
+        return max(scores.values(), default=0.0)
 
 
 class LexicalSignalEngine:

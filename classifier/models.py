@@ -1,8 +1,7 @@
-"""
-Classifier data models.
+﻿"""
+Classifier data models and Evidence re-exports.
 
-Defines the classification result types, rule matching models,
-and structured RiskEvidence contracts used across the gateway.
+Maintains backward compatibility while enforcing Phase 1 Evidence contracts.
 """
 
 from __future__ import annotations
@@ -12,9 +11,23 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from classifier.evidence_models import (
+    ConfidenceBand,
+    ScoreType,
+    DetectionSignal,
+    PromptAttackEvidence,
+    ContentRiskEvidence,
+    DlpEvidence,
+    ContextEvidence,
+    ScriptProfileEvidence,
+    AuxiliaryEvidence,
+    JudgeEvidence,
+    SecurityEvidence,
+)
+
 
 class Classification(str, Enum):
-    """Request classification result."""
+    """Legacy classification compatibility enum."""
 
     NORMAL = "NORMAL"
     RESTRICTED = "RESTRICTED"
@@ -68,7 +81,7 @@ class RuleMatch(BaseModel):
 
 
 class DetectionResult(BaseModel):
-    """Normalized finding from an individual detector."""
+    """Legacy normalized finding from an individual detector."""
 
     detector: str = Field(..., description="Name of the detector")
     categories: list[str] = Field(default_factory=list, description="Target threat categories")
@@ -79,59 +92,28 @@ class DetectionResult(BaseModel):
     version: str = Field(default="1.0", description="Detector engine version")
 
 
-class RiskEvidence(BaseModel):
-    """
-    Standardized, multi-dimensional risk evidence payload.
-    Passed directly to the Policy Engine for routing decisions.
-    """
+# Standard Phase 1 Aliases
+RiskEvidence = SecurityEvidence
+ClassificationResult = SecurityEvidence
 
-    classification: Classification = Field(
-        ...,
-        description="Preliminary classification category: NORMAL or RESTRICTED",
-    )
-    confidence: float = Field(
-        ...,
-        ge=0.0,
-        le=1.0,
-        description="Overall risk confidence score (0.0 to 1.0)",
-    )
-    risk_score: float = Field(
-        default=0.0,
-        ge=0.0,
-        le=1.0,
-        description="Aggregated risk score across all threat dimensions",
-    )
-    categories: dict[str, float] = Field(
-        default_factory=dict,
-        description="Multi-dimensional risk breakdown",
-    )
-    reasons: list[str] = Field(
-        default_factory=list,
-        description="List of detected risk factors, triggers, or matched rules",
-    )
-    matched_rules: list[RuleMatch] = Field(
-        default_factory=list,
-        description="Detailed list of matched deterministic rules",
-    )
-    detections: list[DetectionResult] = Field(
-        default_factory=list,
-        description="Granular findings from all active detectors",
-    )
-    correlations: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description="Abstract multi-axis threat correlations",
-    )
-    uncertainty: float = Field(
-        default=0.0,
-        ge=0.0,
-        le=1.0,
-        description="Estimated uncertainty in classification",
-    )
-    detector_status: dict[str, str] = Field(
-        default_factory=dict,
-        description="Operational health status of detectors",
-    )
-
-
-# Alias for backwards compatibility
-ClassificationResult = RiskEvidence
+__all__ = [
+    "Classification",
+    "Severity",
+    "RuleType",
+    "RuleDefinition",
+    "RuleMatch",
+    "DetectionResult",
+    "ScoreType",
+    "ConfidenceBand",
+    "DetectionSignal",
+    "PromptAttackEvidence",
+    "ContentRiskEvidence",
+    "DlpEvidence",
+    "ContextEvidence",
+    "ScriptProfileEvidence",
+    "AuxiliaryEvidence",
+    "JudgeEvidence",
+    "SecurityEvidence",
+    "RiskEvidence",
+    "ClassificationResult",
+]

@@ -1,28 +1,34 @@
-"""
+﻿"""
 AI Risk Assessment Layer — Main Orchestrator (ClassifierService).
 
-Thin Pipeline Architecture:
-  Step 1: Normalization & De-obfuscation (TextNormalizer)
-  Step 2: Fast Lexical Rules (RuleEngine & LexicalSignalEngine)
-  Step 3: Statistical Signals (DefenseClawMetrics & StructureSignalEngine)
-  Step 4: Semantic Guard (SemanticClassifier)
-  Step 5: Specialized Detectors & DLP (PII, Jailbreak, Safety, DLPValidator)
-  Step 6: Abstract Risk Axes Correlation (RiskAxesCorrelator)
-  Step 7: Conditional Local Adjudication (LocalRiskAdjudicator on conflict only)
-  Step 8: Output standardized RiskEvidence vector (with Fail-Closed guarantee)
+Evidence Producer ONLY (Phase 1 — Evidence / Decision / Enforcement Separation).
+Emits standardized SecurityEvidence without any routing authority or decision strings.
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
-from typing import Any
+import time
+from typing import Any, List, Optional
 
 from classifier.context_analyzer import ContextAnalyzer
 from classifier.defenseclaw_metrics import DefenseClawMetrics
+from classifier.evidence_models import (
+    AuxiliaryEvidence,
+    ConfidenceBand,
+    ContentRiskEvidence,
+    ContextEvidence,
+    DetectionSignal,
+    DlpEvidence,
+    PromptAttackEvidence,
+    ScoreType,
+    ScriptProfileEvidence,
+    SecurityEvidence,
+)
 from classifier.lexical_engine import LexicalSignalEngine
-from classifier.local_adjudicator import LocalRiskAdjudicator
 from classifier.metadata_analyzer import MetadataAnalyzer
-from classifier.models import Classification, DetectionResult, RiskEvidence, RuleMatch
+from classifier.models import Classification, DetectionResult, RuleMatch
 from classifier.normalizer import TextNormalizer
 from classifier.risk_aggregator import RiskAggregator
 from classifier.risk_correlator import RiskAxesCorrelator
@@ -34,48 +40,39 @@ from risk_engine.specialized.dlp_validator import DLPValidator
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONFIDENCE_THRESHOLD = 0.50
-
 
 class ClassifierService:
     """
-    Multi-Signal Risk Assessment & Security Gateway Orchestrator.
-    Executes a modular multi-tier evaluation and produces standardized RiskEvidence.
-    Guarantees strict Fail-Closed behavior on any subsystem exception.
+    Evidence Producer Service.
+    Executes multi-rail signal extraction and emits standardized SecurityEvidence.
+    Holds ZERO routing decision authority.
     """
 
     def __init__(
         self,
         rules_dir: str | None = None,
-        confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
+        confidence_threshold: float = 0.50,
         guard_model_path: str | None = None,
     ) -> None:
-        # Fast Lexical & Deterministic Rules
         self.rule_engine = RuleEngine(rules_dir)
         self.lexical_engine = LexicalSignalEngine()
-
-        # Structural & Statistical Metrics
         self.structure_engine = StructureSignalEngine()
         self.defenseclaw_metrics = DefenseClawMetrics()
 
-        # Semantic & Specialized Guardrails
         self.semantic_classifier = SemanticClassifier(guard_model_path=guard_model_path)
         self.pii_detector = PIIDetector()
         self.jailbreak_detector = JailbreakDetector()
         self.safety_detector = SafetyDetector()
         self.dlp_validator = DLPValidator()
 
-        # Context, Metadata, Correlation & Adjudication
         self.context_analyzer = ContextAnalyzer()
         self.metadata_analyzer = MetadataAnalyzer()
         self.risk_correlator = RiskAxesCorrelator()
-        self.local_adjudicator = LocalRiskAdjudicator()
-
         self.risk_aggregator = RiskAggregator(confidence_threshold=confidence_threshold)
         self.confidence_threshold = confidence_threshold
 
         logger.info(
-            "ClassifierService initialized (Lexical, Statistical, DLP, Semantic, Context, Metadata, and %d Rules).",
+            "ClassifierService initialized as Evidence Producer (Rules: %d).",
             len(self.rule_engine.rules),
         )
 
@@ -84,32 +81,39 @@ class ClassifierService:
         text: str,
         messages: list[dict[str, Any]] | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> RiskEvidence:
+    ) -> SecurityEvidence:
         """
-        Execute risk assessment pipeline and produce structured RiskEvidence.
+        Execute risk assessment pipeline and produce structured SecurityEvidence.
         """
+        start_time = time.perf_counter()
         if not text or not text.strip():
-            return RiskEvidence(
-                classification=Classification.NORMAL,
-                confidence=0.0,
-                risk_score=0.0,
-                reasons=[],
-                matched_rules=[],
-                categories={},
-                detections=[],
-                correlations=[],
-                uncertainty=0.0,
+            return SecurityEvidence(
+                canonical_text="",
+                raw_prompt_hash="",
                 detector_status={"gateway": "idle"},
+                classification=Classification.NORMAL,
             )
 
         try:
+            prompt_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
             detections: list[DetectionResult] = []
             detector_status: dict[str, str] = {}
+            all_reasons: list[str] = []
 
-            # 1. Normalization & De-obfuscation
+            # 1. Canonicalization & Script Profile
+            script_meta = TextNormalizer.extract_script_profile(text)
+            script_profile = ScriptProfileEvidence(
+                arabic_script=script_meta["arabic_script"],
+                latin_script=script_meta["latin_script"],
+                mixed_script=script_meta["mixed_script"],
+                arabizi_likelihood=script_meta["arabizi_likelihood"],
+                detected_scripts=script_meta["detected_scripts"],
+                obfuscation_types=script_meta["obfuscation_types"],
+            )
             variants = TextNormalizer.get_all_normalized_variants(text)
+            canonical_text = variants[0][0] if variants else text
 
-            # 2. Fast Deterministic Rule Matching
+            # 2. Deterministic Invariants & Rules
             rule_matches: list[RuleMatch] = []
             matched_rule_names = set()
             max_rule_score = 0.0
@@ -129,47 +133,10 @@ class ClassifierService:
                                 match_type=m.match_type,
                             )
                         )
-                        detections.append(
-                            DetectionResult(
-                                detector="rule_engine",
-                                categories=["security"],
-                                score=m.severity.score,
-                                confidence=m.severity.score,
-                                status="triggered",
-                                evidence={"rule": m.rule_name, "pattern": m.pattern_matched},
-                                version="2.4",
-                            )
-                        )
+                        all_reasons.append(f"rule:{m.rule_name}")
             detector_status["rule_engine"] = "active"
 
-            # 3. Raw Statistical & Structural Signals (DefenseClaw & Structure)
-            raw_metrics = self.defenseclaw_metrics.extract_metrics(text)
-            structural_scores: dict[str, float] = {}
-
-            # Corroborate raw metrics: high density or mixed scripts generate signal
-            if raw_metrics.imperative_density >= 0.25 and raw_metrics.imperative_count >= 2:
-                structural_scores["defenseclaw_imperative_density"] = min(0.95, 0.60 + (raw_metrics.imperative_density * 0.8))
-            if raw_metrics.mixed_script:
-                structural_scores["defenseclaw_mixed_script_tampering"] = 0.95
-            if raw_metrics.encoding_suspected:
-                structural_scores["defenseclaw_high_entropy_obfuscation"] = 0.85
-
-            for variant_text, source_tag in variants:
-                st_scores = self.structure_engine.evaluate_structure(variant_text)
-                for cat, score in st_scores.items():
-                    tag_name = f"{cat} [{source_tag}]" if source_tag != "direct_text" else cat
-                    structural_scores[tag_name] = max(structural_scores.get(tag_name, 0.0), score)
-
-            # 4. Fast Lexical Engine (BM25 + Subword N-grams)
-            lexical_scores: dict[str, float] = {}
-            for variant_text, source_tag in variants:
-                lx_scores = self.lexical_engine.evaluate_lexical(variant_text)
-                for cat, score in lx_scores.items():
-                    tag_name = f"{cat} [{source_tag}]" if source_tag != "direct_text" else cat
-                    lexical_scores[tag_name] = max(lexical_scores.get(tag_name, 0.0), score)
-            detector_status["lexical_engine"] = "active"
-
-            # 5. Semantic Vector Guard (Contrastive Intent)
+            # 3. Prompt Attack Rail (Semantic & Specialized Detectors)
             semantic_scores: dict[str, float] = {}
             max_semantic_score = 0.0
             for variant_text, source_tag in variants:
@@ -178,40 +145,128 @@ class ClassifierService:
                     tag_name = f"{cat} [{source_tag}]" if source_tag != "direct_text" else cat
                     semantic_scores[tag_name] = max(semantic_scores.get(tag_name, 0.0), score)
                     max_semantic_score = max(max_semantic_score, score)
-            detector_status["semantic_guard"] = "active"
 
-            # 6. Specialized Detectors & Strict DLP Checksums
-            specialized_scores: dict[str, float] = {}
+            jailbreak_findings: dict[str, float] = {}
             for variant_text, source_tag in variants:
-                specialized_scores.update(self.pii_detector.evaluate(variant_text))
-                specialized_scores.update(self.jailbreak_detector.evaluate(variant_text))
-                specialized_scores.update(self.safety_detector.evaluate(variant_text))
-                specialized_scores.update(self.dlp_validator.evaluate(variant_text))
+                jb_res = self.jailbreak_detector.evaluate(variant_text)
+                jailbreak_findings.update(jb_res)
 
-            specialized_scores.update(structural_scores)
-            specialized_scores.update(lexical_scores)
-            detector_status["specialized_detectors"] = "active"
-
-            # 7. Multi-Axis Threat Correlation (Abstract Axes)
-            correlations_raw = self.risk_correlator.correlate(
-                rule_reasons=[m.rule_name for m in rule_matches],
-                specialized_reasons=list(specialized_scores.keys()),
-                semantic_categories=semantic_scores,
-                caller_metadata=metadata,
+            prompt_attack = PromptAttackEvidence(
+                direct_injection=DetectionSignal(
+                    detector_id="semantic_guard.direct_injection",
+                    raw_score=round(max_semantic_score, 4),
+                    score_type=ScoreType.SIMILARITY,
+                    confidence_band=ConfidenceBand.CLEAR_HIGH if max_semantic_score >= 0.70 else (ConfidenceBand.GRAY if max_semantic_score >= 0.30 else ConfidenceBand.CLEAR_LOW),
+                    reason_codes=list(semantic_scores.keys()),
+                ),
+                jailbreak=DetectionSignal(
+                    detector_id="jailbreak_detector",
+                    raw_score=round(max(jailbreak_findings.values(), default=0.0), 4),
+                    score_type=ScoreType.HEURISTIC,
+                    reason_codes=list(jailbreak_findings.keys()),
+                ),
+                role_override=DetectionSignal(
+                    detector_id="role_override_detector",
+                    raw_score=round(semantic_scores.get("role_override", 0.0), 4),
+                    score_type=ScoreType.SIMILARITY,
+                ),
+                system_prompt_extraction=DetectionSignal(
+                    detector_id="system_prompt_extraction_detector",
+                    raw_score=round(max(semantic_scores.get("system_prompt_extraction", 0.0), 0.95 if any("leak" in r.lower() or "prompt" in r.lower() for r in matched_rule_names) else 0.0), 4),
+                    score_type=ScoreType.HEURISTIC,
+                ),
+                tool_schema_extraction=DetectionSignal(
+                    detector_id="tool_schema_extraction_detector",
+                    raw_score=round(semantic_scores.get("tool_schema_extraction", 0.0), 4),
+                    score_type=ScoreType.HEURISTIC,
+                ),
+                obfuscation=DetectionSignal(
+                    detector_id="obfuscation_detector",
+                    raw_score=1.0 if script_profile.obfuscation_types else 0.0,
+                    score_type=ScoreType.HEURISTIC,
+                    reason_codes=script_profile.obfuscation_types,
+                ),
             )
-            correlations_dict = [
-                {"correlation": c.correlation, "score": c.score, "axes": c.axes, "description": c.description}
-                for c in correlations_raw
-            ]
-            for c in correlations_raw:
-                specialized_scores[f"correlation_{c.correlation}"] = c.score
 
-            # 8. Context & Metadata Analyzers
+            # 4. Content Risk & Cyber Intent Rail
+            safety_findings: dict[str, float] = {}
+            for variant_text, source_tag in variants:
+                sf_res = self.safety_detector.evaluate(variant_text)
+                safety_findings.update(sf_res)
+
+            content_risk = ContentRiskEvidence(
+                unauthorized_cyber_intent=DetectionSignal(
+                    detector_id="content_risk.cyber_intent",
+                    raw_score=round(max_rule_score if any("attack" in r.lower() or "sql" in r.lower() or "cve" in r.lower() for r in matched_rule_names) else 0.0, 4),
+                    score_type=ScoreType.HEURISTIC,
+                ),
+                safety_hazards={
+                    k: DetectionSignal(detector_id=f"safety.{k}", raw_score=round(v, 4), score_type=ScoreType.HEURISTIC)
+                    for k, v in safety_findings.items()
+                },
+            )
+
+            # 5. DLP / Secrets & Invariant Rail
+            pii_findings: dict[str, float] = {}
+            dlp_findings: dict[str, float] = {}
+            for variant_text, source_tag in variants:
+                pii_findings.update(self.pii_detector.evaluate(variant_text))
+                dlp_findings.update(self.dlp_validator.evaluate(variant_text))
+
+            has_creds = any("key" in k.lower() or "secret" in k.lower() or "token" in k.lower() for k in dlp_findings)
+            has_pii = len(pii_findings) > 0
+
+            dlp = DlpEvidence(
+                has_credentials=has_creds,
+                has_pii=has_pii,
+                hard_invariant_violation=has_creds or any(m.severity.score >= 0.9 for m in rule_matches if "secret" in m.rule_name.lower()),
+                matched_secrets=list(dlp_findings.keys()),
+                matched_pii_types=list(pii_findings.keys()),
+            )
+
+            # 6. Context & Multi-turn Trajectory
             context_scores = self.context_analyzer.evaluate(messages or [])
-            metadata_scores = self.metadata_analyzer.evaluate(metadata or {})
+            context = ContextEvidence(
+                multi_turn_depth=len(messages) if messages else 0,
+                cumulative_assembly_detected=bool(context_scores.get("salami_attack", 0.0) > 0.5),
+            )
 
-            # 9. Risk Synthesis via Aggregator
-            preliminary = self.risk_aggregator.aggregate(
+            # 7. Auxiliary Signals (BM25 Similarity & Statistical Features)
+            # IMPORTANT: BM25 is treated as an auxiliary feature, not an authoritative routing decision.
+            lexical_scores: dict[str, float] = {}
+            for variant_text, source_tag in variants:
+                lx_res = self.lexical_engine.evaluate_lexical(variant_text)
+                lexical_scores.update(lx_res)
+
+            auxiliary = AuxiliaryEvidence(
+                known_attack_similarity=round(lexical_scores.get("lexical_bm25_threat", 0.0), 4),
+                shannon_entropy=round(self.defenseclaw_metrics.extract_metrics(text).shannon_entropy, 4),
+                zero_width_count=len(script_meta.get("obfuscation_types", [])),
+            )
+
+            total_latency = (time.perf_counter() - start_time) * 1000.0
+
+            evidence = SecurityEvidence(
+                canonical_text=canonical_text,
+                raw_prompt_hash=prompt_hash,
+                prompt_attack=prompt_attack,
+                content_risk=content_risk,
+                dlp=dlp,
+                context=context,
+                script_profile=script_profile,
+                auxiliary=auxiliary,
+                total_latency_ms=round(total_latency, 2),
+                detector_status=detector_status,
+                all_reasons=all_reasons + list(jailbreak_findings.keys()) + list(safety_findings.keys()),
+            )
+
+            metadata_scores = self.metadata_analyzer.evaluate(metadata)
+            specialized_scores = {
+                **{f"pii_{key}": value for key, value in pii_findings.items()},
+                **{f"jailbreak_{key}": value for key, value in jailbreak_findings.items()},
+                **{f"safety_{key}": value for key, value in safety_findings.items()},
+            }
+            aggregate = self.risk_aggregator.aggregate(
                 rule_matches=rule_matches,
                 semantic_scores=semantic_scores,
                 context_scores=context_scores,
@@ -219,61 +274,22 @@ class ClassifierService:
                 specialized_scores=specialized_scores,
                 caller_metadata=metadata,
             )
+            evidence.classification = aggregate.classification
+            evidence.reasons_list = aggregate.reasons
+            evidence.categories_dict = aggregate.categories
+            detector_status["risk_aggregator"] = "active"
 
-            # 10. Conditional Local Risk Adjudication (Only upon conflict / uncertainty)
-            final_risk_score = preliminary.confidence
-            final_reasons = preliminary.reasons
-            uncertainty = round(abs(max_rule_score - max_semantic_score), 4)
-
-            if preliminary.confidence > 0.0:
-                adjudicated_score, adjudicated_reasons, was_adjudicated = self.local_adjudicator.adjudicate(
-                    text=text,
-                    initial_risk_score=preliminary.confidence,
-                    rule_score=max_rule_score,
-                    semantic_score=max_semantic_score,
-                    uncertainty=uncertainty,
-                    reasons=preliminary.reasons,
-                )
-                if was_adjudicated and adjudicated_score == 0.0:
-                    final_risk_score = 0.0
-                    final_reasons = []
-
-            final_classification = Classification.RESTRICTED if final_risk_score >= self.confidence_threshold else Classification.NORMAL
-
-            evidence = RiskEvidence(
-                classification=final_classification,
-                confidence=round(final_risk_score, 4),
-                risk_score=round(final_risk_score, 4),
-                categories=preliminary.categories,
-                reasons=final_reasons,
-                matched_rules=rule_matches if final_risk_score > 0 else [],
-                detections=detections,
-                correlations=correlations_dict,
-                uncertainty=uncertainty,
-                detector_status=detector_status,
-            )
-
-            logger.info(
-                "Risk Assessment Complete: %s (confidence=%.4f, reasons=%s)",
-                evidence.classification.value,
-                evidence.confidence,
-                evidence.reasons,
-            )
             return evidence
 
         except Exception as err:
-            logger.error("ClassifierService encountered fatal error: %s -> FAIL-CLOSED (RESTRICTED)", err)
-            return RiskEvidence(
-                classification=Classification.RESTRICTED,
-                confidence=1.0,
-                risk_score=1.0,
-                categories={"security": 1.0},
-                reasons=[f"fail_closed_error: {err}"],
-                matched_rules=[],
-                detections=[],
-                correlations=[],
-                uncertainty=1.0,
+            logger.error("ClassifierService encountered fatal error: %s -> Emitting Fail-Closed Evidence", err)
+            return SecurityEvidence(
+                canonical_text=text,
+                raw_prompt_hash="",
+                dlp=DlpEvidence(hard_invariant_violation=True),
                 detector_status={"gateway": "errored"},
+                all_reasons=[f"fail_closed_error: {err}"],
+                classification=Classification.RESTRICTED,
             )
 
     def reload_rules(self, rules_dir: str) -> None:

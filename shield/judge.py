@@ -142,3 +142,52 @@ class LocalJudge:
             redacted = pattern.sub("[REDACTED-CARD]", redacted)
 
         return redacted
+
+    def adjudicate(self, text: str, evidence: Any = None) -> Any:
+        """
+        Adjudicate ambiguity/conflict during an ESCALATE cycle and produce JudgeEvidence.
+        IMPORTANT: The Judge emits evidence ONLY. It holds zero routing decision authority.
+        """
+        import time
+        from classifier.evidence_models import JudgeEvidence
+
+        start_time = time.perf_counter()
+        t = (text or "").lower()
+
+        # Check for confirmed execution or exploit attack patterns
+        is_unsafe = False
+        hazards = []
+        reason = "Evaluated by local judge."
+
+        for pattern in self.dangerous_request_patterns:
+            if pattern.search(text):
+                is_unsafe = True
+                hazards.append("execution_attack")
+                reason = "Dangerous command or code injection pattern confirmed."
+                break
+
+        # Check for benign educational/inquiry markers
+        if not is_unsafe:
+            if t.startswith(("what is", "explain", "how does", "ما هو", "ما هي", "اشرح", "كيف يعمل", "عرف")):
+                verdict = "SAFE"
+                reason = "Benign informational/educational inquiry identified."
+                confidence = 0.85
+            else:
+                verdict = "SAFE" if not is_unsafe else "UNSAFE"
+                confidence = 0.80 if is_unsafe else 0.70
+        else:
+            verdict = "UNSAFE"
+            confidence = 0.90
+
+        latency_ms = (time.perf_counter() - start_time) * 1000.0
+
+        return JudgeEvidence(
+            judge_id="local_judge_isolated",
+            judge_version="1.0",
+            verdict=verdict,
+            confidence=confidence,
+            hazard_categories=hazards,
+            adjudication_reason=reason,
+            latency_ms=round(latency_ms, 2),
+        )
+

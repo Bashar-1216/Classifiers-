@@ -97,11 +97,16 @@ class SemanticClassifier:
         )
 
     def _load_neural_guard(self) -> bool:
-        """Lazy load Llama-Guard-3-1B model and tokenizer into process memory."""
+        """Lazy load Llama-Guard-3-1B model and tokenizer into process memory if local path exists."""
         if self._neural_model_loaded:
             return self._neural_model is not None
 
-        if not self.enable_neural_guard:
+        if not self.enable_neural_guard or not self.guard_model_path:
+            return False
+
+        if not Path(self.guard_model_path).exists():
+            # Zero external network ingress during offline CPU execution
+            self._neural_model_loaded = True
             return False
 
         try:
@@ -109,9 +114,10 @@ class SemanticClassifier:
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
             logger.info("Initializing Local Llama-Guard-3-1B runtime (%s)...", self.guard_model_path)
-            self._neural_tokenizer = AutoTokenizer.from_pretrained(self.guard_model_path)
+            self._neural_tokenizer = AutoTokenizer.from_pretrained(self.guard_model_path, local_files_only=True)
             self._neural_model = AutoModelForCausalLM.from_pretrained(
                 self.guard_model_path,
+                local_files_only=True,
                 torch_dtype=torch.float32,
                 low_cpu_mem_usage=True,
             )

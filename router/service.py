@@ -62,10 +62,43 @@ class RouterService:
         if not messages and request.prompt:
             messages = [{"role": "user", "content": request.prompt}]
 
+        # 1. Strict PEP Integrity & Provenance Verification
+        req_id = request.request_id or (request.metadata.request_id if request.metadata else None)
+        if decision.signature is not None:
+            is_valid, err_msg = decision.verify_integrity(expected_request_id=req_id)
+            if not is_valid:
+                logger.error("PEP Decision Integrity Violation: %s — Failing Closed", err_msg)
+                raise ShieldUnavailableError(f"Decision Integrity Violation: {err_msg}")
+
+        # Invariant checks for Restricted and Shield Routes
+        if decision.route in (Route.RESTRICTED, Route.SHIELD, Route.LOCAL_SHIELD):
+            if decision.cloud_fallback:
+                logger.error("PEP Invariant Violation: cloud_fallback=True on RESTRICTED route")
+                raise ShieldUnavailableError("PEP Invariant Violation: cloud_fallback=True on RESTRICTED route")
+            if any("cloud" in d.lower() for d in decision.permitted_destinations):
+                logger.error("PEP Destination Violation: cloud destination listed in RESTRICTED decision")
+                raise ShieldUnavailableError("PEP Destination Violation: cloud destination listed in RESTRICTED decision")
+
         if decision.route in (Route.NORMAL, Route.CLOUD):
             return await self._route_normal(messages, request, decision)
-        elif decision.route in (Route.SHIELD, Route.LOCAL_SHIELD, Route.LOCAL_PRIVATE):
+        elif decision.route in (Route.RESTRICTED, Route.SHIELD, Route.LOCAL_SHIELD, Route.LOCAL_PRIVATE):
             return await self._route_shield(messages, request, decision)
+        elif decision.route == Route.BLOCK:
+            logger.warning("Request BLOCKED by PDP: %s", decision.reason)
+            return ChatResponse(
+                choices=[
+                    ChatChoice(
+                        index=0,
+                        message=Message(role="assistant", content=f"Request blocked by enterprise security policy: {decision.reason}"),
+                        finish_reason="stop",
+                    )
+                ],
+                route_taken="BLOCK",
+                model="security_gateway",
+            )
+        elif decision.route == Route.UNAVAILABLE:
+            logger.error("Shield UNAVAILABLE — Failing closed with zero cloud fallback")
+            raise ShieldUnavailableError("Air-Gapped Shield service is unavailable. Request denied (Fail-Closed).")
         else:
             # Unknown route — fail closed
             logger.error("Unknown route: %s — failing closed", decision.route)

@@ -244,3 +244,41 @@ class TextNormalizer:
             variants.append((url_decoded, "url_decoded_payload"))
 
         return variants
+
+    @classmethod
+    def extract_script_profile(cls, text: str) -> dict[str, Any]:
+        """
+        Extract descriptive script and linguistic context metadata.
+        IMPORTANT: This is observational context metadata, NEVER an autonomous risk signal.
+        """
+        has_arabic = bool(re.search(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]', text))
+        has_latin = bool(re.search(r'[a-zA-Z]', text))
+        mixed_script = has_arabic and has_latin
+
+        # Check for Arabizi character/numeral substitution patterns in Latin tokens
+        arabizi_tokens = re.findall(r'\b[a-zA-Z]*[2356789][a-zA-Z]+\b|\b[a-zA-Z]+[2356789][a-zA-Z0-9]*\b', text)
+        arabizi_likelihood = min(1.0, len(arabizi_tokens) * 0.35) if arabizi_tokens else 0.0
+
+        detected_scripts = []
+        if has_arabic:
+            detected_scripts.append("arabic")
+        if has_latin:
+            detected_scripts.append("latin")
+
+        obfuscation_types = []
+        if INVISIBLE_CHARS_PATTERN.search(text):
+            obfuscation_types.append("zero_width_chars")
+        if BASE64_PATTERN.search(text):
+            obfuscation_types.append("base64_candidate")
+        if any(c in HOMOGLYPHS_MAP for c in text):
+            obfuscation_types.append("unicode_homoglyphs")
+
+        return {
+            "arabic_script": has_arabic,
+            "latin_script": has_latin,
+            "mixed_script": mixed_script,
+            "arabizi_likelihood": round(arabizi_likelihood, 2),
+            "detected_scripts": detected_scripts,
+            "obfuscation_types": obfuscation_types,
+        }
+

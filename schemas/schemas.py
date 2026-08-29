@@ -75,6 +75,10 @@ class RequestMetadata(BaseModel):
         default=None,
         description="Session identifier for multi-turn conversation tracking",
     )
+    request_id: Optional[str] = Field(
+        default=None,
+        description="Unique request tracing identifier",
+    )
 
 
 class ChatRequest(BaseModel):
@@ -84,6 +88,10 @@ class ChatRequest(BaseModel):
     Accepts either a direct prompt or a list of messages (or both).
     """
 
+    request_id: Optional[str] = Field(
+        default=None,
+        description="Optional request identifier for tracing",
+    )
     prompt: Optional[str] = Field(
         default=None,
         max_length=100000,
