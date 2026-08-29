@@ -207,13 +207,16 @@ class SemanticClassifier:
                 logger.warning("Failed to load knowledge file %s: %s", self.knowledge_file, exc)
 
     def _compile_cluster_words(self) -> None:
-        """Pre-tokenize cluster anchors for sub-millisecond similarity scoring."""
+        """Pre-tokenize cluster anchors for similarity scoring."""
         self._cluster_word_sets = {}
         for tag, anchors in self.clusters.items():
+            if tag == "normal_benign" or "benign" in tag.lower():
+                continue
             words: set[str] = set()
             for a in anchors:
                 words.update(re.findall(r"\w+", a.lower()))
-            self._cluster_word_sets[tag] = words
+            if words:
+                self._cluster_word_sets[tag] = words
 
     def calculate_entropy(self, text: str) -> float:
         """Calculate Shannon Information Entropy for obfuscation and anomaly detection."""
@@ -224,34 +227,19 @@ class SemanticClassifier:
 
     def classify_intent(self, text: str) -> dict[str, float]:
         """
-        Classify text intent across risk categories using neural inference + morphological overlap + entropy.
+        Classify text intent across risk categories using neural inference + entropy.
         """
         if not text or not text.strip():
             return {}
 
         scores: dict[str, float] = {}
 
-        # 1. Neural Guard Llama-Guard-3-1B Local Forward Pass (if available)
+        # 1. Neural Guard Local Forward Pass (if available)
         neural_scores = self.evaluate_neural_guard(text)
         if neural_scores:
             scores.update(neural_scores)
 
-        text_lower = text.lower()
-        tokens = set(re.findall(r"\w+", text_lower))
-        if not tokens:
-            return scores
-
-        # 2. Morphological Token Overlap Scoring (Centroids)
-        for tag, cluster_words in self._cluster_word_sets.items():
-            if not cluster_words:
-                continue
-            intersection = tokens.intersection(cluster_words)
-            if intersection:
-                overlap_ratio = len(intersection) / min(len(tokens), len(cluster_words))
-                if overlap_ratio >= self.min_similarity_threshold:
-                    scores[tag] = max(scores.get(tag, 0.0), round(min(0.95, overlap_ratio * 1.5), 4))
-
-        # 3. Shannon Entropy Obfuscation Signal
+        # 2. Shannon Entropy Obfuscation Signal
         entropy = self.calculate_entropy(text)
         if entropy > 4.5 and len(text) > 40:
             scores["statistical_high_entropy_obfuscation"] = max(
@@ -264,3 +252,5 @@ class SemanticClassifier:
     def evaluate(self, text: str) -> dict[str, float]:
         """Pipeline evaluation interface matching ClassifierService contract."""
         return self.classify_intent(text)
+
+

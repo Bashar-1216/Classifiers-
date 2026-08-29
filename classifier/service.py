@@ -1,4 +1,4 @@
-﻿"""
+"""
 AI Risk Assessment Layer — Main Orchestrator (ClassifierService).
 
 Evidence Producer ONLY (Phase 1 — Evidence / Decision / Enforcement Separation).
@@ -71,10 +71,37 @@ class ClassifierService:
         self.risk_aggregator = RiskAggregator(confidence_threshold=confidence_threshold)
         self.confidence_threshold = confidence_threshold
 
+        self._deberta_guard = None
+        self._qwen_guard = None
+        self._init_neural_guards()
+
         logger.info(
             "ClassifierService initialized as Evidence Producer (Rules: %d).",
             len(self.rule_engine.rules),
         )
+
+    def _init_neural_guards(self) -> None:
+        """Dynamically initialize local neural guards if weights are present on disk."""
+        from pathlib import Path
+        deberta_path = Path("E:/models/deberta-v3-prompt-injection")
+        qwen_path = Path("E:/models/Qwen2.5-0.5B-Instruct")
+
+        if deberta_path.exists():
+            try:
+                from benchmark.adapters.deberta_guard import DebertaGuardAdapter
+                self._deberta_guard = DebertaGuardAdapter(model_path=str(deberta_path))
+                logger.info("DeBERTa-v3 Guard successfully loaded in ClassifierService.")
+            except Exception as e:
+                logger.warning("Could not initialize DeBERTa-v3 guard: %s", e)
+
+        if qwen_path.exists():
+            try:
+                from benchmark.adapters.qwen_guard import QwenGuardAdapter
+                self._qwen_guard = QwenGuardAdapter(model_path=str(qwen_path))
+                logger.info("Qwen Guard 0.5B successfully loaded in ClassifierService.")
+            except Exception as e:
+                logger.warning("Could not initialize Qwen Guard: %s", e)
+
 
     def classify(
         self,
@@ -136,27 +163,71 @@ class ClassifierService:
                         all_reasons.append(f"rule:{m.rule_name}")
             detector_status["rule_engine"] = "active"
 
-            # 3. Prompt Attack Rail (Semantic & Specialized Detectors)
+            # 3. Prompt Attack Rail (Neural Guards & Semantic Evidence)
+            neural_injection_prob: Optional[float] = None
+            active_detector_id = "semantic_guard.direct_injection"
+            active_score_type = ScoreType.SIMILARITY
+
+            # Fast Latin / English discriminator via DeBERTa
+            if self._deberta_guard and (script_profile.latin_script or not script_profile.arabic_script):
+                from benchmark.schema import BenchmarkSample
+                from policy.models import Route
+                sample = BenchmarkSample(sample_id="runtime_check", text=canonical_text, policy_label=Route.NORMAL)
+                deberta_ev = self._deberta_guard.detect(sample)
+                sig = deberta_ev.prompt_attack.direct_injection
+                prob = sig.calibrated_probability
+                # For very short prompts (< 20 chars), verify with Qwen to prevent single-word embedding artifacts
+                if len(canonical_text.strip()) < 20 and prob is not None and prob >= 0.50:
+                    if self._qwen_guard:
+                        qwen_ev = self._qwen_guard.detect(sample)
+                        prob = qwen_ev.prompt_attack.direct_injection.calibrated_probability
+                    elif not any(k in canonical_text.lower() for k in ["ignore", "bypass", "system", "prompt", "jailbreak", "override", "dan"]):
+                        prob = 0.0
+                neural_injection_prob = prob
+                active_detector_id = "deberta_v3_guard"
+                active_score_type = ScoreType.PROBABILITY
+
+            # Multilingual Semantic Guard for Arabic / Dialects / Arabizi or Gray Zone
+            if self._qwen_guard and (script_profile.arabic_script or script_profile.arabizi_likelihood > 0.3 or (neural_injection_prob is not None and 0.20 <= neural_injection_prob <= 0.80)):
+                from benchmark.schema import BenchmarkSample
+                from policy.models import Route
+                sample = BenchmarkSample(sample_id="runtime_check", text=canonical_text, policy_label=Route.NORMAL)
+                qwen_ev = self._qwen_guard.detect(sample)
+                sig = qwen_ev.prompt_attack.direct_injection
+                qwen_prob = sig.calibrated_probability
+                neural_injection_prob = max(neural_injection_prob or 0.0, qwen_prob or 0.0)
+                active_detector_id = "qwen2.5_guard_0.5b"
+                active_score_type = ScoreType.PROBABILITY
+
             semantic_scores: dict[str, float] = {}
-            max_semantic_score = 0.0
-            for variant_text, source_tag in variants:
-                v_scores = self.semantic_classifier.evaluate(variant_text)
-                for cat, score in v_scores.items():
-                    tag_name = f"{cat} [{source_tag}]" if source_tag != "direct_text" else cat
-                    semantic_scores[tag_name] = max(semantic_scores.get(tag_name, 0.0), score)
-                    max_semantic_score = max(max_semantic_score, score)
+            max_semantic_score = neural_injection_prob if neural_injection_prob is not None else 0.0
+
+            if neural_injection_prob is None:
+                for variant_text, source_tag in variants:
+                    v_scores = self.semantic_classifier.evaluate(variant_text)
+                    for cat, score in v_scores.items():
+                        tag_name = f"{cat} [{source_tag}]" if source_tag != "direct_text" else cat
+                        semantic_scores[tag_name] = max(semantic_scores.get(tag_name, 0.0), score)
+                        max_semantic_score = max(max_semantic_score, score)
 
             jailbreak_findings: dict[str, float] = {}
             for variant_text, source_tag in variants:
                 jb_res = self.jailbreak_detector.evaluate(variant_text)
                 jailbreak_findings.update(jb_res)
 
+            conf_band = ConfidenceBand.CLEAR_LOW
+            if max_semantic_score >= 0.70:
+                conf_band = ConfidenceBand.CLEAR_HIGH
+            elif max_semantic_score >= 0.30:
+                conf_band = ConfidenceBand.GRAY
+
             prompt_attack = PromptAttackEvidence(
                 direct_injection=DetectionSignal(
-                    detector_id="semantic_guard.direct_injection",
+                    detector_id=active_detector_id,
                     raw_score=round(max_semantic_score, 4),
-                    score_type=ScoreType.SIMILARITY,
-                    confidence_band=ConfidenceBand.CLEAR_HIGH if max_semantic_score >= 0.70 else (ConfidenceBand.GRAY if max_semantic_score >= 0.30 else ConfidenceBand.CLEAR_LOW),
+                    score_type=active_score_type,
+                    calibrated_probability=round(max_semantic_score, 4) if active_score_type == ScoreType.PROBABILITY else None,
+                    confidence_band=conf_band,
                     reason_codes=list(semantic_scores.keys()),
                 ),
                 jailbreak=DetectionSignal(
